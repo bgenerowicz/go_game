@@ -1,0 +1,19 @@
+# Large third-party downloads: copied between machines by hand, not through git
+tools/*
+!tools/README.md
+docs/godot/*
+!docs/godot/.gitkeep
+engine/win/*
+!engine/win/.gitkeep
+engine/models/*
+!engine/models/.gitkeep
+
+# Godot
+.godot/
+*.translation
+export_presets.cfg
+.import/
+
+# OS
+.DS_Store
+Thumbs.db

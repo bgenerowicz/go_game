@@ -98,9 +98,11 @@ func set_analysis(analysis: Dictionary) -> void:
 		var point: Vector2i = Coords.from_gtp(gtp, board_size())
 		if point == Coords.INVALID and not Coords.is_pass(gtp):
 			continue
+		# The engine reports win rates from Black's side (0..1); for White the
+		# chance is the complement, not the negative (which showed as "-100").
 		var rate: float = float(info.get("winrate", 0.0))
 		if not black_to_move:
-			rate = -rate
+			rate = 1.0 - rate
 		candidate_list.append({
 			"point": point,
 			"move": gtp,
@@ -125,6 +127,8 @@ func candidate_at(pos: Vector2) -> int:
 	var radius: float = cell * 0.5
 	for index in candidate_list.size():
 		var point: Vector2i = (candidate_list[index] as Dictionary)["point"] as Vector2i
+		if point == Coords.INVALID:
+			continue  # a pass has no place on the board
 		if (pos - point_center(point.x, point.y)).length() <= radius:
 			return index
 	return -1
@@ -361,6 +365,11 @@ func _draw_candidates(cell: float) -> void:
 	for index in candidate_list.size():
 		var entry: Dictionary = candidate_list[index] as Dictionary
 		var point: Vector2i = entry["point"] as Vector2i
+		# A pass candidate stays in the list (it can be the best move, and the
+		# side panel says so) but has no intersection: drawing it at the
+		# invalid point put a stray circle outside the board's top-left corner.
+		if point == Coords.INVALID:
+			continue
 		var center: Vector2 = point_center(point.x, point.y)
 		var color: Color = Color(0.15, 0.4, 0.9) \
 			if bool(entry["is_best"]) else _loss_color(float(entry["loss"]))

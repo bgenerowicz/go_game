@@ -165,7 +165,7 @@ func open_with(p_size: int, p_komi: float, p_rules: String, p_handicap: int,
 	var rank_index: int = RANKS.find(rank)
 	rank_box.selected = rank_index if rank_index >= 0 else 0
 	var colour_index: int = COLOURS.find(p_human_colour)
-	colour_box.selected = colour_index if colour_index >= 0 else 1
+	colour_box.selected = colour_index if colour_index >= 0 else COLOURS.find("random")
 	_update_note()
 	# Fit the dialog to its content each time: the note changes length with the
 	# options, and a size left over from a longer note would leave a gap.
@@ -209,7 +209,7 @@ func params() -> Dictionary:
 		"rules": RULES[rules_box.selected] if rules_box.selected >= 0 else "japanese",
 		"handicap": int(handicap_box.value),
 		"profile": profile(),
-		"human_colour": COLOURS[colour_box.selected] if colour_box.selected >= 0 else "white",
+		"human_colour": COLOURS[colour_box.selected] if colour_box.selected >= 0 else "random",
 	}
 
 ## The notes the PLAN asks for: the 9/13 accuracy caveat, the handicap komi and

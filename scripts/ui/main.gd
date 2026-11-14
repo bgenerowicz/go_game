@@ -71,6 +71,7 @@ var live_request_id: String = ""
 func _ready() -> void:
 	if get_tree().current_scene != self:
 		save_dir = TEST_SAVE_DIR
+	_random.randomize()
 	var settings: Node = get_node_or_null("/root/Settings")
 	if settings != null:
 		flow.start(int(settings.board_size), float(settings.komi),
@@ -1064,7 +1065,8 @@ func _on_new_game() -> void:
 		"rules": flow.tree.rules,
 		"handicap": 0,
 		"profile": ai.profile if ai != null else "",
-		"black_is_ai": ai_side == Board.Stone.BLACK,
+		# Same default as the dialog: the colours are drawn at random.
+		"human_colour": "random",
 	})
 
 
@@ -1082,13 +1084,9 @@ func _open_new_game_dialog() -> void:
 		add_child(dialog)
 		new_game_dialog = dialog
 	var profile: String = ai.profile if ai != null else ""
-	# The dialog asks which colour the human plays, so tell it what the current
-	# game has: the human holds the colour the AI does not.
-	var human_colour: String = "white"
-	if ai_side == Board.Stone.WHITE:
-		human_colour = "black"
-	elif ai_side == Board.Stone.BLACK:
-		human_colour = "white"
+	# Your colour defaults to Random each time; pick Black or White in the
+	# dialog to choose.
+	var human_colour: String = "random"
 	new_game_dialog.open_with(flow.tree.size, flow.tree.komi, flow.tree.rules,
 		flow.tree.handicap, profile, human_colour)
 
@@ -1113,10 +1111,12 @@ func _new_game_with(p: Dictionary) -> void:
 		ai.configure(String(p["profile"]))
 		# The dialog asks which colour the human plays; the opponent takes the
 		# other one. "random" is decided here, once, and stays for the game.
-		var human_colour: String = String(p.get("human_colour", "white"))
+		var human_colour: String = String(p.get("human_colour", "random"))
 		var human_black: bool = human_colour == "black"
 		if human_colour == "random":
-			human_black = _random.next_bool()
+			# RandomNumberGenerator has no next_bool(); that call failed, so
+			# "Random" never started a game against the engine.
+			human_black = _random.randi_range(0, 1) == 0
 		ai_side = Board.Stone.WHITE if human_black else Board.Stone.BLACK
 		# Named in the SGF (PB/PW), so a saved game says who played whom.
 		flow.tree.black_name = _opponent_name() if ai_side == Board.Stone.BLACK else "You"

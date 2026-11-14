@@ -280,12 +280,22 @@ func _run() -> void:
 		dialog.engine_box.button_pressed = true
 		dialog.style_box.selected = 1  # "preaz" (pre-AI style)
 		dialog.rank_box.selected = 2
+		# Even right after a game as White, the dialog opens on Random.
+		_check(dialog.COLOURS[dialog.colour_box.selected] == "random",
+			"your colour defaults to Random")
 		dialog.colour_box.selected = 0  # the human plays Black
 		dialog.confirmed.emit()
 		dialog.hide()
 		await process_frame
 		_check(root.ai_side == Board.Stone.WHITE, "the opponent takes White")
 		_check(String(root.ai.sl_profile()) == "preaz_10k", "the profile carries the style")
+		# "Random" must actually give the engine a colour (it used to call a
+		# function that does not exist and leave the game without an opponent).
+		root._new_game_with({"size": 9, "komi": 6.5, "rules": "japanese",
+			"handicap": 0, "profile": "rank_5k", "human_colour": "random"})
+		await process_frame
+		_check(root.ai_side == Board.Stone.BLACK or root.ai_side == Board.Stone.WHITE,
+			"a random colour still gives the engine a side")
 		# Back to a plain 9x9 game for the checks that follow.
 		root._new_game_with({"size": 9, "komi": 6.5, "rules": "japanese",
 			"handicap": 0, "profile": "", "human_colour": "white"})

@@ -107,6 +107,30 @@ func _run() -> void:
 	_check(flow.move_number() == before_undo - 2, "undo on the human's turn takes back a pair")
 	_check(flow.turn() == Board.Stone.BLACK, "still the human to move")
 
+	# Two passes end the game and the engine counts it: the result must be a
+	# real score (it used to stay "two passes" because the scoring query was
+	# dropped), in standard SGF form, and shown in words.
+	main_root._new_game_with({"size": SIZE, "komi": 6.5, "rules": "japanese",
+		"handicap": 0, "profile": "", "human_colour": "black"})
+	while not engine.running or main_root.flow.tree.size != SIZE:
+		await process_frame
+	for gtp in ["D4", "K10", "G7"]:
+		_click(gtp)
+	main_root._on_pass()
+	main_root._on_pass()
+	var score_start: int = Time.get_ticks_msec()
+	while main_root.flow.tree.result == "" \
+			and Time.get_ticks_msec() - score_start < TIMEOUT_SECONDS * 1000.0:
+		await process_frame
+	var re: String = main_root.flow.tree.result
+	_check(flow.over, "two passes end the game")
+	_check(re.begins_with("B+") or re.begins_with("W+") or re == "Draw",
+		"the game is scored: RE[%s]" % re)
+	_check(not re.contains("("), "the SGF result is in standard form")
+	_check(String(main_root.turn_label.text).contains("wins by") \
+		or String(main_root.turn_label.text).contains("Draw"),
+		"the result is shown in words: %s" % main_root.turn_label.text)
+
 	print("=== %d failure(s) ===" % failures)
 	print("AI_TURN_CHECK_PASSED" if failures == 0 else "FAILED")
 	quit(0 if failures == 0 else 1)

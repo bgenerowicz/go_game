@@ -165,16 +165,41 @@ func _schedule_scoring() -> void:
 	if analysis == null or engine == null or not engine.is_alive():
 		_apply_area_count_score()
 		return
-	scoring_node = flow.current()
-	analysis.request(scoring_node, SCORE_VISITS, {"include_ownership": true})
+	var node: GameNode = flow.current()
+	# A deep enough answer may already be cached (live analysis of this very
+	# position); the engine would not report a weaker one again, so use it.
+	if _good_enough_for_score(node):
+		_finish_scoring(node)
+		return
+	scoring_node = node
+	# The request needs the tree: without it the query was silently dropped,
+	# so a game ended by two passes never got its score.
+	var id: String = analysis.request(node, SCORE_VISITS,
+		{"tree": flow.tree, "include_ownership": true})
+	if id == "":
+		scoring_node = null
+		_apply_area_count_score()
+		return
+	_refresh()
+
+
+## True when a node's cached analysis can settle the score: a final answer of
+## about the scoring depth, with ownership.
+func _good_enough_for_score(node: GameNode) -> bool:
+	var result: Dictionary = node.analysis
+	return not result.is_empty() and int(result.get("visits", 0)) >= int(SCORE_VISITS * 0.95) \
+		and not (result.get("ownership", []) as Array).is_empty()
 
 
 func _finish_scoring(node: GameNode) -> void:
 	scoring_node = null
 	var score_lead: float = float((node.analysis as Dictionary).get("score_lead", 0.0))
-	var text: String = Scoring.engine_result(score_lead)
-	flow.result_text = text
-	flow.tree.result = text
+	# The SGF gets the standard form (RE[B+7.5]); the note that it is the
+	# engine's estimate is for the screen only.
+	flow.tree.result = Scoring.result_from_score_lead(score_lead)
+	flow.result_text = Scoring.engine_result(score_lead)
+	# The auto-save written when the game ended had no score yet.
+	autosave()
 	if board_view != null:
 		board_view.show_ownership = true
 		if view_menu != null:
@@ -184,9 +209,9 @@ func _finish_scoring(node: GameNode) -> void:
 
 func _apply_area_count_score() -> void:
 	var count: Dictionary = Scoring.area_count(flow.board(), flow.tree.komi)
-	var text: String = String(count["result"]) + " (area count)"
-	flow.result_text = text
-	flow.tree.result = text
+	flow.tree.result = String(count["result"])
+	flow.result_text = String(count["result"]) + " (area count)"
+	autosave()
 	_refresh()
 
 
@@ -779,7 +804,7 @@ func _request_live_analysis() -> void:
 func _on_analysis_updated(node: GameNode) -> void:
 	if node == null:
 		return
-	if node == scoring_node:
+	if node == scoring_node and _good_enough_for_score(node):
 		_finish_scoring(node)
 	if node == flow.current() and _hints_visible():
 		board_view.set_analysis(node.analysis)
@@ -821,7 +846,9 @@ func _show_analysis(node: GameNode) -> void:
 		winrate_bar.set_values(black_rate, score_lead, visits)
 	if ownership_label != null:
 		var estimate: String = Review.ownership_text(result.get("ownership", []) as Array)
-		ownership_label.text = "Territory estimate: " + estimate if estimate != "" else ""
+		# The raw ownership sum: who holds more of the board, without komi.
+		# The score lead above includes komi, so the two can point opposite ways.
+		ownership_label.text = "Board area before komi: " + estimate if estimate != "" else ""
 
 
 ## Clears the analysis read-out, which is what the user sees when hints are off
@@ -952,6 +979,25 @@ func _on_pass() -> void:
 	if mode == "play" and not _is_ai_turn():
 		flow.pass_move()
 	_refresh()
+
+
+## "B+7.5" -> "Black wins by 7.5", "W+Resign" -> "White wins by resignation".
+static func _result_in_words(result: String) -> String:
+	var text: String = result.strip_edges()
+	if text.begins_with("Draw") or text == "0":
+		return "Draw"
+	if text.length() < 2 or text[1] != "+" or not (text[0] == "B" or text[0] == "W"):
+		return text
+	var winner: String = "Black" if text[0] == "B" else "White"
+	var margin: String = text.substr(2).get_slice(" ", 0)
+	match margin.to_lower():
+		"r", "resign":
+			return winner + " wins by resignation"
+		"t", "time":
+			return winner + " wins on time"
+		"", "?":
+			return winner + " wins"
+	return "%s wins by %s points" % [winner, margin]
 
 
 ## Shows what matters for the current mode. In review the game buttons give way
@@ -1560,7 +1606,11 @@ func _refresh() -> void:
 	# move_number() counts moves already played; the label shows the number of
 	# the move about to be played, which is what a player expects to see.
 	if flow.over and node == flow.tree.main_line().back():
-		turn_label.text = "Game over after %d moves" % flow.move_number()
+		if scoring_node != null:
+			turn_label.text = "Game over  ·  counting the score…"
+		else:
+			turn_label.text = "Game over  ·  " + _result_in_words(flow.tree.result
+				if flow.tree.result != "" else flow.result_text)
 	else:
 		turn_label.text = "Move %d  ·  %s to play" % [flow.move_number() + 1,
 			"Black" if turn == Board.Stone.BLACK else "White"]

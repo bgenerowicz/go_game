@@ -25,6 +25,8 @@ var candidates_toggle: CheckButton
 var deeper_button: Button
 ## Engine view: shows/hides the ownership heatmap on the board.
 var ownership_toggle: CheckButton
+## Engine view: automatic analysis of the shown position on/off.
+var live_toggle: CheckButton
 var _circles_help: Label
 ## Side-panel parts that change with the mode (see _update_panel_mode).
 var _actions: GridContainer
@@ -321,7 +323,7 @@ func _build_menu() -> MenuBar:
 	view_menu.add_check_item("Review mode", 22)
 	view_menu.add_check_item("Suggested moves on the board (C)", 23)
 	view_menu.add_check_item("Ownership on the board (O)", 24)
-	view_menu.add_check_item("Live analysis", 25)
+	view_menu.add_check_item("Live analysis (L)", 25)
 	# PLAN 6.1: analysis output is hidden during a game unless this is ticked.
 	view_menu.add_check_item("Show hints during a game", 26)
 	view_menu.set_item_checked(view_menu.get_item_index(20), true)
@@ -392,6 +394,14 @@ func _build_side_panel() -> VBoxContainer:
 	# PLAN 6.2 ownership overlay: "Show 'Black +x.x' score estimate".
 	ownership_label = _text_label("OwnershipEstimate", FONT_SMALL, COLOR_MUTED)
 	view.add_child(ownership_label)
+	live_toggle = CheckButton.new()
+	live_toggle.name = "LiveAnalysis"
+	live_toggle.text = "Live analysis (L)"
+	live_toggle.focus_mode = Control.FOCUS_NONE
+	live_toggle.add_theme_font_size_override("font_size", FONT_SMALL)
+	live_toggle.button_pressed = live_enabled
+	live_toggle.toggled.connect(_set_live_enabled)
+	view.add_child(live_toggle)
 	deeper_button = _button("Analyse deeper", _analyse_deeper)
 	deeper_button.name = "AnalyseDeeper"
 	deeper_button.add_theme_font_size_override("font_size", FONT_SMALL)
@@ -475,7 +485,7 @@ func _build_side_panel() -> VBoxContainer:
 	footer.add_child(restart_button)
 	panel.add_child(footer)
 	var hint: Label = _text_label("Keys", FONT_SMALL, COLOR_MUTED)
-	hint.text = "← → move   ↑ ↓ variation   Home/End   P pass   U undo   C suggestions   O ownership   " \
+	hint.text = "← → move   ↑ ↓ variation   Home/End   P pass   U undo   C suggestions   O ownership   L live   " \
 		+ "Ctrl+O open   Ctrl+S save"
 	panel.add_child(hint)
 	return panel
@@ -1076,6 +1086,8 @@ func _update_panel_mode() -> void:
 		candidates_toggle.visible = hints
 	if deeper_button != null:
 		deeper_button.visible = hints
+	if live_toggle != null:
+		live_toggle.visible = hints
 	if ownership_toggle != null:
 		ownership_toggle.visible = hints
 	if _circles_help != null:
@@ -1302,12 +1314,7 @@ func _on_view_menu(id: int) -> void:
 			_set_mode("review" if mode == "play" else "play")
 			_refresh()
 		25:
-			live_enabled = not live_enabled
-			view_menu.set_item_checked(view_menu.get_item_index(25), live_enabled)
-			if not live_enabled and analysis != null:
-				analysis.cancel_live()
-			else:
-				_request_live_analysis()
+			_set_live_enabled(not live_enabled)
 		20, 21, 23, 24, 26:
 			# Overlay toggles live in Settings so they persist and the settings
 			# dialog cannot drift out of step with this menu (PLAN 6.2 toggles).
@@ -1316,6 +1323,24 @@ func _on_view_menu(id: int) -> void:
 			if settings == null:
 				return
 			_set_view_setting(key, not bool(settings.get(key)))
+
+
+## Turns automatic analysis of the shown position on or off, keeping the View
+## menu tick and the Engine view switch in step. Off stops the running search;
+## "Analyse deeper" still works on demand.
+func _set_live_enabled(on: bool) -> void:
+	live_enabled = on
+	if view_menu != null:
+		view_menu.set_item_checked(view_menu.get_item_index(25), on)
+	if live_toggle != null:
+		live_toggle.set_pressed_no_signal(on)
+	if not on:
+		if analysis != null:
+			analysis.cancel_live()
+		live_request_id = ""
+	else:
+		_request_live_analysis()
+	_update_deeper_button(flow.current())
 
 
 ## Sets one overlay toggle. It lives in Settings so it persists, and the save
@@ -1428,6 +1453,9 @@ func _input(event: InputEvent) -> void:
 			var settings_node: Node = get_node_or_null("/root/Settings")
 			if settings_node != null:
 				_set_view_setting("show_candidates", not bool(settings_node.show_candidates))
+			accept_event()
+		KEY_L:
+			_set_live_enabled(not live_enabled)
 			accept_event()
 		KEY_O:
 			var o_settings: Node = get_node_or_null("/root/Settings")

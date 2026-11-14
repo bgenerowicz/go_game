@@ -5,6 +5,8 @@ extends Node
 
 signal analysis_updated(node: GameNode)
 signal review_progress(done: int, total: int)
+## One main-line position of a running review has its final answer.
+signal review_turn_analysed(node: GameNode)
 signal review_finished
 signal review_failed(message: String)
 signal live_updated(node: GameNode)
@@ -251,6 +253,7 @@ func _on_response(response: Dictionary) -> void:
 		# would otherwise make the review finish early.
 		if not bool(response.get("isDuringSearch", false)):
 			_review_done += 1
+			review_turn_analysed.emit(target)
 			review_progress.emit(_review_done, _review_total)
 			if _review_done >= _review_total:
 				_review_id = ""

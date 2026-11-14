@@ -307,7 +307,7 @@ func _build_menu() -> MenuBar:
 
 
 const SIDE_WIDTH: float = 320.0
-const GRAPH_HEIGHT: float = 170.0
+const GRAPH_HEIGHT: float = 180.0
 
 
 func _build_side_panel() -> VBoxContainer:
@@ -511,6 +511,7 @@ func _engine_setup() -> void:
 	analysis.analysis_updated.connect(_on_analysis_updated)
 	analysis.live_updated.connect(_on_analysis_updated)
 	analysis.review_progress.connect(_on_review_progress)
+	analysis.review_turn_analysed.connect(_on_review_turn_analysed)
 	analysis.review_finished.connect(_on_review_finished)
 	analysis.review_failed.connect(_on_review_failed)
 	if not engine.is_available():
@@ -580,14 +581,41 @@ func _run_review() -> void:
 	# higher priority would only slow it down.
 	analysis.cancel_live()
 	live_request_id = ""
+	# The board follows the review from the first move, so the position on
+	# screen is the one the engine has just evaluated.
+	flow.tree.go_to_root()
+	_review_follow = flow.current()
 	_set_review_status("Starting: %d positions at %d visits each"
 		% [flow.tree.main_line_length(), visits])
 	analysis.request_review(flow.tree, visits)
 	_refresh()
 
 
+## While a review runs, the board shows each position as the engine finishes it.
+## It only moves forward (two positions are analysed at once, so answers can
+## arrive slightly out of order), and it stops following as soon as the user
+## navigates somewhere else themself.
+var _review_follow: GameNode = null
+
+
+func _on_review_turn_analysed(node: GameNode) -> void:
+	if _review_follow == null or node == null:
+		return
+	if flow.current() != _review_follow:
+		_review_follow = null  # the user moved; leave the board where they put it
+		return
+	if flow.tree.move_count_to(node) <= flow.tree.move_count_to(_review_follow):
+		return
+	flow.tree.go_to(node)
+	_review_follow = node
+	_refresh()
+
+
 func _on_review_progress(done: int, total: int) -> void:
-	_set_review_status("Reviewing… %d of %d positions" % [done, total])
+	var status: String = "Reviewing… %d of %d positions" % [done, total]
+	if _review_follow != null:
+		status += " (showing move %d)" % flow.tree.move_count_to(_review_follow)
+	_set_review_status(status)
 	if graph_view != null:
 		graph_view.refresh_data()
 	# The mistake list fills in as the review goes, not only at the end; it is
@@ -597,6 +625,7 @@ func _on_review_progress(done: int, total: int) -> void:
 
 
 func _on_review_finished() -> void:
+	_review_follow = null
 	_show_mistakes()
 	if graph_view != null:
 		graph_view.refresh_data()
@@ -969,6 +998,7 @@ func _forget_review() -> void:
 	if analysis != null:
 		analysis.cancel_review()
 	review = null
+	_review_follow = null
 	_set_mode("play")
 	_show_mistakes()
 
@@ -1177,6 +1207,7 @@ func _on_review_menu(id: int) -> void:
 		31:
 			if analysis != null:
 				analysis.cancel_review()
+			_review_follow = null
 			_set_review_status("Review cancelled")
 		32:
 			_open_settings()

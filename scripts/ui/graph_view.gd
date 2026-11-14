@@ -10,7 +10,7 @@ signal turn_clicked(turn: int)
 
 const MARGIN_LEFT: float = 34.0
 const MARGIN_RIGHT: float = 34.0
-const MARGIN_TOP: float = 16.0
+const MARGIN_TOP: float = 28.0  # room for the legend and progress note
 const MARGIN_BOTTOM: float = 18.0
 
 var tree: GameTree = null
@@ -90,8 +90,8 @@ func _draw() -> void:
 		var midline: bool = i == 2
 		draw_line(Vector2(plot.position.x, y), Vector2(plot.end.x, y),
 			_grid_color, 1.5 if midline else 0.5)
-		draw_string(_font(), Vector2(4.0, y + 4.0), "%d" % int(fraction * 100.0),
-			HORIZONTAL_ALIGNMENT_LEFT, 0, 10, _text_color)
+		draw_string(_font(), Vector2(4.0, y + 4.0), "%d%%" % int(fraction * 100.0),
+			HORIZONTAL_ALIGNMENT_LEFT, 0, 10, _line_color)
 
 	# Vertical grid, plus a label for the last move.
 	var step: int = maxi(1, int(ceil(turns / 12.0)))
@@ -107,6 +107,8 @@ func _draw() -> void:
 	if show_score:
 		var bounds: Vector2 = _score_bounds()
 		_draw_series(_score_line, plot, turns, bounds.x, bounds.y, _score_color, 1.2)
+		_draw_score_axis(plot, bounds)
+	_draw_legend(plot)
 
 	# Mistake dots, sized and coloured by severity.
 	for turn_number in _mistake_by_turn:
@@ -198,6 +200,56 @@ func _score_bounds() -> Vector2:
 	return Vector2(low - pad, high + pad)
 
 
+## Score-lead labels on the right edge, in the orange of the score line: the
+## top and bottom of its scale, and 0 (an even game) when it is in range.
+func _draw_score_axis(plot: Rect2, bounds: Vector2) -> void:
+	var span: float = bounds.y - bounds.x
+	if span <= 0.0:
+		return
+	var ticks: Array = [bounds.x, bounds.y]
+	if bounds.x < 0.0 and bounds.y > 0.0:
+		ticks.append(0.0)
+	for value in ticks:
+		var y: float = plot.end.y - (float(value) - bounds.x) / span * plot.size.y
+		var text: String = "0" if absf(value) < 0.05 else "%+.0f" % value
+		draw_string(_font(), Vector2(plot.end.x + 4.0, y + 4.0), text,
+			HORIZONTAL_ALIGNMENT_LEFT, 0, 10, _score_color)
+
+
+## What the two lines mean, plus the mistake dot colours, in the top-right
+## corner of the plot.
+func _draw_legend(plot: Rect2) -> void:
+	var entries: Array = [
+		[_line_color, "line", "Black's chance to win (left axis)"],
+	]
+	if show_score:
+		entries.append([_score_color, "line", "Score lead, + = Black ahead (right axis)"])
+	entries.append([_mistake_color(Review.KIND_INACCURACY), "dot", "inaccuracy"])
+	entries.append([_mistake_color(Review.KIND_MISTAKE), "dot", "mistake"])
+	entries.append([_mistake_color(Review.KIND_BLUNDER), "dot", "blunder"])
+	var font: Font = _font()
+	var size_px: int = 11
+	var swatch: float = 16.0
+	var gap: float = 14.0
+	var width: float = 0.0
+	for entry in entries:
+		width += swatch + 4.0 + font.get_string_size(String(entry[2]),
+			HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x + gap
+	var x: float = plot.end.x - width
+	var y: float = 4.0  # in the top margin, above the plot
+	for entry in entries:
+		var color: Color = entry[0]
+		var mid_y: float = y + 7.0
+		if String(entry[1]) == "line":
+			draw_line(Vector2(x, mid_y), Vector2(x + swatch, mid_y), color, 2.5)
+		else:
+			draw_circle(Vector2(x + swatch * 0.5, mid_y), 4.0, color)
+		x += swatch + 4.0
+		draw_string(font, Vector2(x, mid_y + 4.0), String(entry[2]),
+			HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, _text_color)
+		x += font.get_string_size(String(entry[2]), HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x + gap
+
+
 func _mistake_color(kind: String) -> Color:
 	match kind:
 		Review.KIND_BLUNDER:
@@ -209,7 +261,7 @@ func _mistake_color(kind: String) -> Color:
 
 
 func _draw_note(text: String, plot: Rect2) -> void:
-	draw_string(_font(), Vector2(plot.position.x + 6.0, plot.position.y + 12.0), text,
+	draw_string(_font(), Vector2(plot.position.x, 15.0), text,
 		HORIZONTAL_ALIGNMENT_LEFT, 0, 11, _text_color)
 
 

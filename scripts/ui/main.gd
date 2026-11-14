@@ -92,8 +92,16 @@ func _ready() -> void:
 ## size) by the screen's scale factor, keep it within the usable screen area,
 ## and centre it. The canvas_items stretch mode then scales the UI to match.
 ## Skipped for embedded/headless runs, where there is no real screen.
+##
+## Also skipped when the game runs inside the Godot editor's Game tab: there the
+## editor owns the window's size and position, and resizing it from here left
+## the picture drawn shifted inside the editor panel while the editor kept
+## mapping the mouse as if it filled the panel, so the stone under the cursor
+## landed rows below it.
 func _fit_window_to_screen(window: Window) -> void:
 	var min_logical: Vector2i = Vector2i(760, 560)
+	if Engine.is_embedded_in_editor():
+		return
 	if DisplayServer.get_name() == "headless" or window != get_tree().root:
 		window.min_size = min_logical
 		return

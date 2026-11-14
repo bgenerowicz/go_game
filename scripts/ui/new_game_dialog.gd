@@ -23,8 +23,9 @@ const STYLE_LABELS: Array[String] = ["Modern (post-AlphaGo)", "Pre-AI style"]
 
 ## Ranks offered to both styles. KataGo spells them the same way in both
 ## families, so the profile name is simply "<style>_<rank>".
+## "beginner" is below KataGo's lowest rank; see AiPlayer.BEGINNER.
 const RANKS: Array[String] = [
-	"20k", "15k", "10k", "8k", "5k", "2k", "1k", "1d", "2d", "5d", "8d", "9d",
+	"beginner", "20k", "15k", "10k", "8k", "5k", "2k", "1k", "1d", "2d", "5d", "8d", "9d",
 ]
 
 ## PLAN 6.1 "human colour (black/white/random)".
@@ -115,7 +116,7 @@ func _build() -> void:
 	rank_box = OptionButton.new()
 	rank_box.name = "Rank"
 	for rank in RANKS:
-		rank_box.add_item(rank)
+		rank_box.add_item("Beginner (below 20k)" if rank == "beginner" else rank)
 	rank_box.selected = RANKS.find("10k")
 	grid.add_child(rank_box)
 

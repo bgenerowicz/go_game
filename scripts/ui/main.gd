@@ -1630,9 +1630,9 @@ func _autosave_stem() -> String:
 func _opponent_name() -> String:
 	var profile: String = ai.profile if ai != null else ""
 	if profile.begins_with("rank_"):
-		return "KataGo " + profile.substr(5)
+		return "KataGo " + profile.substr(5).replace("beginner", "Beginner")
 	if profile.begins_with("preaz_"):
-		return "KataGo %s (pre-AI)" % profile.substr(6)
+		return "KataGo %s (pre-AI)" % profile.substr(6).replace("beginner", "Beginner")
 	return "KataGo"
 
 

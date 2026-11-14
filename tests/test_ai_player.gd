@@ -13,10 +13,7 @@ func run() -> void:
 	_test_pass_rules()
 	_test_resign_rules()
 	_test_no_analysis()
-	_test_filters()
-	_test_pass_rules()
-	_test_resign_rules()
-	_test_no_analysis()
+	_test_beginner()
 
 
 ## Builds a fake analysis result. `policy` maps GTP move -> humanPolicy value;
@@ -208,3 +205,38 @@ func _test_no_analysis() -> void:
 		"moves": [], "human_policy": []}
 	var empty: Dictionary = player.choose_move(no_moves, 19, Board.Stone.BLACK, 1, false)
 	a.check_eq(String(empty["move"]), "", "an empty candidate list yields no move")
+
+
+func _test_beginner() -> void:
+	a.section("ai player: beginner level")
+	var beginner: AiPlayer = AiPlayer.new()
+	beginner.configure("rank_beginner")
+	a.check(beginner.is_beginner(), "rank_beginner is the beginner level")
+	a.check_eq(beginner.sl_profile(), "rank_20k", "beginner asks KataGo for its lowest rank")
+	beginner.configure("preaz_beginner")
+	a.check_eq(beginner.sl_profile(), "preaz_20k", "pre-AI beginner keeps its family")
+	a.check(not AiPlayer.new("rank_20k").is_beginner(), "20k is not the beginner level")
+	# The search only offered D5, but the human policy also likes E5 and A1.
+	# Beginner may pick any of them; the ranked levels only pick D5.
+	var size: int = 9
+	var analysis: Dictionary = make_analysis(size, ["D5"], {"D5": 0.5})
+	var flat: Array = analysis["human_policy"]
+	flat[Coords.from_gtp("E5", size).y * size + Coords.from_gtp("E5", size).x] = 0.3
+	flat[Coords.from_gtp("A1", size).y * size + Coords.from_gtp("A1", size).x] = 0.2
+	flat[Coords.from_gtp("J9", size).y * size + Coords.from_gtp("J9", size).x] = -1.0
+	beginner.configure("rank_beginner")
+	beginner.rng.seed = 7
+	var seen: Dictionary = {}
+	for i in 600:
+		var move: String = String(beginner.choose_move(analysis, size, Board.Stone.BLACK, 1, false)["move"])
+		seen[move] = int(seen.get(move, 0)) + 1
+	a.check(seen.has("E5") and seen.has("A1"), "beginner plays moves the search did not offer: %s" % str(seen))
+	a.check(not seen.has("J9"), "beginner never plays an illegal point")
+	a.check(int(seen.get("D5", 0)) > int(seen.get("A1", 0)), "it still prefers the likelier move")
+	var ranked: AiPlayer = AiPlayer.new("rank_20k")
+	ranked.rng.seed = 7
+	var ranked_seen: Dictionary = {}
+	for i in 200:
+		ranked_seen[String(ranked.choose_move(analysis, size, Board.Stone.BLACK, 1, false)["move"])] = true
+	a.check_eq(ranked_seen.keys(), ["D5"], "20k still picks only from the search's moves")
+

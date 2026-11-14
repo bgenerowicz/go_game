@@ -287,7 +287,7 @@ func _run() -> void:
 		await process_frame
 		dialog.engine_box.button_pressed = true
 		dialog.style_box.selected = 0  # "rank" (modern style)
-		dialog.rank_box.selected = 4
+		dialog.rank_box.selected = dialog.RANKS.find("5k")
 		dialog.colour_box.selected = 1  # the human plays White
 		dialog.confirmed.emit()
 		dialog.hide()  # pressing OK hides the dialog in the real app
@@ -299,7 +299,7 @@ func _run() -> void:
 		await process_frame
 		dialog.engine_box.button_pressed = true
 		dialog.style_box.selected = 1  # "preaz" (pre-AI style)
-		dialog.rank_box.selected = 2
+		dialog.rank_box.selected = dialog.RANKS.find("10k")
 		# Even right after a game as White, the dialog opens on Random.
 		_check(dialog.COLOURS[dialog.colour_box.selected] == "random",
 			"your colour defaults to Random")

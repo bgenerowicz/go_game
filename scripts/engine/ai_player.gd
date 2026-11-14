@@ -17,6 +17,16 @@ const MIN_THINK_SECONDS: float = 0.5
 const RESIGN_WINRATE: float = 0.03
 const RESIGN_SCORE_BEHIND: float = 25.0
 const RESIGN_AFTER_MOVE: int = 100
+## The level below 20k. KataGo's human network stops at 20k, so "beginner" plays
+## its 20k profile but samples from that network's whole move distribution
+## (every legal point), where the ranked levels only choose among moves the
+## search already considered. That lets it make the slow, loose and
+## overlooked moves real beginners make.
+const BEGINNER: String = "beginner"
+const BEGINNER_PROFILE_RANK: String = "20k"
+## Beginner ignores points under this fraction of its most likely move, so it
+## plays loosely without picking moves no human would.
+const BEGINNER_MIN_FRACTION: float = 0.005
 
 var profile: String = "rank_5k"
 var style: String = "modern"  # "modern" or "preai"
@@ -53,9 +63,18 @@ func configure(p_profile: String, p_visits: int = -1) -> void:
 
 ## The profile name KataGo expects for this rank and style.
 func sl_profile() -> String:
-	if style == "preai" and profile.begins_with("rank_"):
-		return "preaz_" + profile.substr("rank_".length())
-	return profile
+	var name: String = profile
+	if is_beginner():
+		# Same family, KataGo's lowest rank: rank_beginner -> rank_20k.
+		name = profile.trim_suffix(BEGINNER) + BEGINNER_PROFILE_RANK
+	if style == "preai" and name.begins_with("rank_"):
+		return "preaz_" + name.substr("rank_".length())
+	return name
+
+
+## True for the Beginner level (rank_beginner / preaz_beginner).
+func is_beginner() -> bool:
+	return profile.ends_with("_" + BEGINNER)
 
 
 ## opts for Analysis.request() to get what the opponent needs.
@@ -95,8 +114,11 @@ func choose_move(analysis: Dictionary, size: int, color: int,
 		if previous_was_pass or move_number > int(size * size / 2.0):
 			return {"move": Coords.PASS, "resign": false, "reason": "engine best is pass"}
 
-	# Sample from the human policy, not from the search result (step 3).
-	var weighted: Array = _weighted_candidates(analysis, size)
+	# Sample from the human policy, not from the search result (step 3). The
+	# ranked levels pick among the searched candidates; Beginner picks from the
+	# whole board.
+	var weighted: Array = _full_policy_candidates(analysis, size) if is_beginner() \
+		else _weighted_candidates(analysis, size)
 	if weighted.is_empty():
 		# No usable human policy: fall back to the engine's best move rather
 		# than passing out of a live position.
@@ -147,6 +169,34 @@ func _weighted_candidates(analysis: Dictionary, size: int) -> Array:
 		if value < 0.0 or value < cutoff:
 			continue
 		out.append({"move": gtp, "weight": value, "rank": rank})
+		total += value
+	if total <= 0.0:
+		return []
+	for candidate in out:
+		candidate["weight"] = float(candidate["weight"]) / total
+	return out
+
+
+## Every legal board point the human policy gives at least
+## BEGINNER_MIN_FRACTION of its largest value, as [{move, weight, rank}] with
+## weights summing to 1. Pass is left to the pass rules in choose_move().
+func _full_policy_candidates(analysis: Dictionary, size: int) -> Array:
+	var policy: Array = analysis.get("human_policy", []) as Array
+	var out: Array = []
+	if policy.size() < size * size:
+		return out
+	var largest: float = 0.0
+	for i in size * size:
+		largest = maxf(largest, float(policy[i]))
+	if largest <= 0.0:
+		return out
+	var cutoff: float = largest * BEGINNER_MIN_FRACTION
+	var total: float = 0.0
+	for i in size * size:
+		var value: float = float(policy[i])
+		if value < 0.0 or value < cutoff:  # -1 marks an illegal point
+			continue
+		out.append({"move": Coords.to_gtp(i % size, i / size, size), "weight": value, "rank": -1})
 		total += value
 	if total <= 0.0:
 		return []

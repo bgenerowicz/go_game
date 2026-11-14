@@ -69,7 +69,7 @@ func _build() -> void:
 	size_box.name = "Size"
 	for size in SIZES:
 		size_box.add_item(str(size))
-	size_box.item_selected.connect(func(_i: int) -> void: _update_note())
+	size_box.item_selected.connect(func(_i: int) -> void: _apply_standard_komi())
 	grid.add_child(size_box)
 
 	grid.add_child(_label("Komi"))
@@ -84,6 +84,7 @@ func _build() -> void:
 	rules_box.name = "Rules"
 	for rules in RULES:
 		rules_box.add_item(rules.capitalize())
+	rules_box.item_selected.connect(func(_i: int) -> void: _apply_standard_komi())
 	grid.add_child(rules_box)
 
 	grid.add_child(_label("Handicap (Black stones)"))
@@ -148,11 +149,14 @@ func _label(text: String) -> Label:
 func open_with(p_size: int, p_komi: float, p_rules: String, p_handicap: int,
 		p_profile: String, p_human_colour: String) -> void:
 	size_box.selected = maxi(0, SIZES.find(p_size))
-	komi_box.text = str(p_komi)
-	_komi_touched = false
 	var rules_index: int = RULES.find(p_rules)
 	rules_box.selected = rules_index if rules_index >= 0 else 0
-	handicap_box.value = clampi(p_handicap, 0, 9)
+	handicap_box.set_value_no_signal(clampi(p_handicap, 0, 9))
+	# Start from the standard komi for these settings, not the last game's: a
+	# komi typed once (say 7.5 on 9x9) used to stick to every later game.
+	# p_komi is kept in the signature for callers but no longer copied.
+	_komi_touched = false
+	_apply_standard_komi()
 	# A profile name such as "preaz_5k" splits into style plus rank.
 	engine_box.button_pressed = p_profile != ""
 	var style: String = "rank"
@@ -177,11 +181,34 @@ func _on_start() -> void:
 	_update_note()
 
 
-func _on_handicap(value: float) -> void:
-	if _komi_touched:
-		_update_note()
-		return
-	komi_box.text = "0.5" if int(value) > 0 else "6.5"
+func _on_handicap(_value: float) -> void:
+	_apply_standard_komi()
+
+
+## Standard komi for a board size, rule set and handicap:
+## - handicap games: 0.5 (the handicap stones replace komi)
+## - territory scoring (Japanese, Korean): 6.5
+## - area scoring (Chinese, AGA, New Zealand, Tromp-Taylor, Ing): 7.5
+## The same on 9x9, 13x13 and 19x19: KataGo's fair komi is about 7 area points
+## on all three, and these are the values servers use. The size is a parameter
+## so a size-specific value has one place to go.
+static func standard_komi(_size: int, rules: String, handicap: int) -> float:
+	if handicap > 0:
+		return 0.5
+	match rules:
+		"japanese", "korean":
+			return 6.5
+		_:
+			return 7.5
+
+
+## Fills in the standard komi for the chosen size, rules and handicap, unless
+## the user has typed a komi of their own in this dialog.
+func _apply_standard_komi() -> void:
+	if not _komi_touched:
+		var rules: String = RULES[rules_box.selected] if rules_box.selected >= 0 else RULES[0]
+		var size: int = SIZES[size_box.selected] if size_box.selected >= 0 else 19
+		komi_box.text = str(standard_komi(size, rules, int(handicap_box.value)))
 	_update_note()
 
 
@@ -225,9 +252,8 @@ func _update_note() -> void:
 	if size != 19:
 		lines.append("On %dx%d the opponent's rank is approximate (the human-like "
 			% [size, size] + "model is calibrated on 19x19); adjust it if games feel too easy or hard.")
-	if handicap > 0 and komi == 6.5:
-		lines.append("Handicap games use komi 0.5 unless you set it yourself.")
-	if String(p["profile"]) != "":
-		lines.append("The opponent needs the engine running (Settings, then Start engine).")
+	if not _komi_touched:
+		lines.append("Komi is set to the standard for these rules: 6.5 for Japanese "
+			+ "or Korean scoring, 7.5 for area scoring, 0.5 with handicap stones.")
 	note_label.text = "\n".join(lines)
 

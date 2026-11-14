@@ -245,6 +245,26 @@ func _run() -> void:
 		_check(String(root.flow.tree.rules) == "chinese", "dialog applied chinese rules")
 		_check(root.flow.tree.board_at(root.flow.current()).size == 13,
 			"the board view follows the new size")
+		# Komi follows the rules and handicap like a user would set them, and
+		# a komi typed by hand is left alone.
+		root._open_new_game_dialog()
+		await process_frame
+		_check(dialog.komi_box.text == "7.5", "chinese rules open with komi 7.5 (got %s)" % dialog.komi_box.text)
+		dialog.rules_box.select(0)
+		dialog.rules_box.item_selected.emit(0)
+		_check(dialog.komi_box.text == "6.5", "japanese rules switch komi to 6.5")
+		dialog.size_box.select(0)
+		dialog.size_box.item_selected.emit(0)
+		_check(dialog.komi_box.text == "6.5", "9x9 japanese keeps the standard 6.5")
+		dialog.handicap_box.value = 2
+		_check(dialog.komi_box.text == "0.5", "a handicap switches komi to 0.5")
+		dialog.handicap_box.value = 0
+		dialog.komi_box.text = "5.5"
+		dialog.komi_box.text_changed.emit("5.5")
+		dialog.size_box.select(2)
+		dialog.size_box.item_selected.emit(2)
+		_check(dialog.komi_box.text == "5.5", "a komi typed by hand is kept")
+		dialog.hide()
 		# A handicap game places stones and drops komi to 0.5 by default.
 		root._open_new_game_dialog()
 		await process_frame

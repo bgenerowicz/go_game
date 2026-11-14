@@ -226,9 +226,11 @@ static func star_points(p_size: int) -> Array[Vector2i]:
 					out.append(Vector2i(x, y))
 			out.append(Vector2i(4, 4))
 		13:
-			for x in [3, 6, 9]:
-				for y in [3, 6, 9]:
+			# Standard 13x13 marks: the four 4-4 points and tengen.
+			for x in [3, 9]:
+				for y in [3, 9]:
 					out.append(Vector2i(x, y))
+			out.append(Vector2i(6, 6))
 		19:
 			for x in [3, 9, 15]:
 				for y in [3, 9, 15]:

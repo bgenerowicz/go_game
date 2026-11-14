@@ -212,8 +212,8 @@ func _update_note() -> void:
 	var size: int = int(p["size"])
 	var lines: Array[String] = []
 	if size != 19:
-		lines.append("The human-like model is most accurate on 19x19; on %dx%d its "
-			% [size, size] + "moves drift away from the chosen rank.")
+		lines.append("On %dx%d the opponent's rank is approximate (the human-like "
+			% [size, size] + "model is calibrated on 19x19); adjust it if games feel too easy or hard.")
 	if handicap > 0 and komi == 6.5:
 		lines.append("Handicap games use komi 0.5 unless you set it yourself.")
 	if String(p["profile"]) != "":

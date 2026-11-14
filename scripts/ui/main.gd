@@ -927,11 +927,33 @@ func _update_panel_mode() -> void:
 ## The move strip and the review graph follow the system light/dark setting
 ## (the side panel is dark either way). Re-applied when the setting changes.
 func _apply_appearance() -> void:
-	var dark: bool = DisplayServer.is_dark_mode_supported() and DisplayServer.is_dark_mode()
+	var dark: bool = _system_dark_mode()
+	if dark != _last_dark:
+		_last_dark = dark
+		print("go_game: appearance %s" % ("dark" if dark else "light"))
 	if graph_view != null:
 		graph_view.set_dark(dark)
 	if tree_view != null:
 		tree_view.set_dark(dark)
+
+
+var _last_dark: Variant = null
+
+
+## Whether the system is in dark mode. A game running inside the Godot editor's
+## Game tab gets an embedded display server that cannot answer this (it reports
+## "not supported", so everything looked light there), so on macOS the setting
+## is read from the system defaults instead in that case.
+func _system_dark_mode() -> bool:
+	if DisplayServer.is_dark_mode_supported() and not Engine.is_embedded_in_editor():
+		return DisplayServer.is_dark_mode()
+	if OS.get_name() == "macOS":
+		var output: Array = []
+		OS.execute("defaults", ["read", "-g", "AppleInterfaceStyle"], output)
+		return output.size() > 0 and String(output[0]).strip_edges() == "Dark"
+	if DisplayServer.is_dark_mode_supported():
+		return DisplayServer.is_dark_mode()
+	return false
 
 
 ## Switches between play and review mode and keeps the View menu tick in step.
@@ -1382,6 +1404,10 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		if flow != null and mode == "play":
 			_save_if_played()
+	# Inside the editor the system's appearance-change callback never arrives,
+	# so the appearance is re-checked whenever the app comes back into focus.
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN and is_node_ready():
+		_apply_appearance()
 
 
 ## Settings ------------------------------------------------------------

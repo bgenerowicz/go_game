@@ -193,16 +193,27 @@ func _build_ui() -> void:
 	# comment box, buttons) would otherwise be squeezed to nothing.
 	side_scroller = ScrollContainer.new()
 	side_scroller.name = "SideScroller"
-	side_scroller.custom_minimum_size = Vector2(258, 0)
+	side_scroller.custom_minimum_size = Vector2(SIDE_WIDTH + 8, 0)
 	side_scroller.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	side_scroller.add_child(_build_side_panel())
 	body.add_child(side_scroller)
 
+	# The win-rate graph runs the full width under the board, where a whole
+	# game has room to be read at a glance. It appears once a review exists;
+	# during play it would only take space away from the board.
+	graph_view = GraphView.new()
+	graph_view.name = "Graph"
+	graph_view.custom_minimum_size = Vector2(0, GRAPH_HEIGHT)
+	graph_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	graph_view.turn_clicked.connect(_on_graph_clicked)
+	graph_view.visible = false
+	column.add_child(graph_view)
+
 	# The move tree runs along the bottom, where a long main line has room to
-	# stretch sideways.
+	# stretch sideways. One row of move circles plus the scroll bar.
 	var strip: ScrollContainer = ScrollContainer.new()
 	strip.name = "TreeStrip"
-	strip.custom_minimum_size = Vector2(0, 130)
+	strip.custom_minimum_size = Vector2(0, 64)
 	strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_child(strip)
 	tree_scroller = strip
@@ -266,11 +277,16 @@ func _build_menu() -> MenuBar:
 	return menu
 
 
+const SIDE_WIDTH: float = 320.0
+const GRAPH_HEIGHT: float = 170.0
+
+
 func _build_side_panel() -> VBoxContainer:
 	var panel: VBoxContainer = VBoxContainer.new()
 	panel.name = "Side"
-	panel.custom_minimum_size = Vector2(250, 0)
-	panel.add_theme_constant_override("separation", 8)
+	panel.custom_minimum_size = Vector2(SIDE_WIDTH, 0)
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	panel.add_theme_constant_override("separation", 6)
 
 	status_label = Label.new()
 	status_label.name = "Status"
@@ -290,12 +306,24 @@ func _build_side_panel() -> VBoxContainer:
 	engine_label.text = "Engine: not started"
 	panel.add_child(engine_label)
 
-	graph_view = GraphView.new()
-	graph_view.name = "Graph"
-	graph_view.custom_minimum_size = Vector2(250, 190)
-	graph_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	graph_view.turn_clicked.connect(_on_graph_clicked)
-	panel.add_child(graph_view)
+	# Game actions as a compact grid, so they do not push the review content
+	# off the bottom of the panel.
+	var actions: GridContainer = GridContainer.new()
+	actions.name = "Actions"
+	actions.columns = 3
+	actions.add_theme_constant_override("h_separation", 4)
+	actions.add_theme_constant_override("v_separation", 4)
+	for entry in [["Pass", _on_pass], ["Undo", _on_undo], ["Resign", _on_resign],
+			["New game", _on_new_game], ["Review game", _run_review]]:
+		var button: Button = _button(String(entry[0]), entry[1] as Callable)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		actions.add_child(button)
+	# PLAN 5.2: a dead engine must be restartable from the UI.
+	restart_button = _button("Restart engine", _restart_engine)
+	restart_button.name = "RestartEngine"
+	restart_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(restart_button)
+	panel.add_child(actions)
 
 	review_label = Label.new()
 	review_label.name = "ReviewStatus"
@@ -305,7 +333,7 @@ func _build_side_panel() -> VBoxContainer:
 	# PLAN 6.2 info panel: win-rate bar, score lead, visits, player names.
 	winrate_bar = WinRateBar.new()
 	winrate_bar.name = "WinRateBar"
-	winrate_bar.custom_minimum_size = Vector2(250, 34)
+	winrate_bar.custom_minimum_size = Vector2(SIDE_WIDTH, 34)
 	winrate_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.add_child(winrate_bar)
 
@@ -328,22 +356,18 @@ func _build_side_panel() -> VBoxContainer:
 	panel.add_child(mistake_title)
 	var mistake_scroll: ScrollContainer = ScrollContainer.new()
 	mistake_scroll.name = "MistakeScroll"
-	mistake_scroll.custom_minimum_size = Vector2(250, 120)
+	mistake_scroll.custom_minimum_size = Vector2(SIDE_WIDTH, 220)
 	mistake_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	mistake_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	mistake_box = VBoxContainer.new()
 	mistake_box.name = "MistakeList"
 	mistake_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mistake_scroll.add_child(mistake_box)
 	panel.add_child(mistake_scroll)
-
-	panel.add_child(_button("Pass", _on_pass))
-	panel.add_child(_button("Undo", _on_undo))
-	panel.add_child(_button("Resign", _on_resign))
-	panel.add_child(_button("New game", _on_new_game))
-	# PLAN 5.2: a dead engine must be restartable from the UI.
-	restart_button = _button("Restart engine", _restart_engine)
-	restart_button.name = "RestartEngine"
-	panel.add_child(restart_button)
+	# Player names and the ownership estimate are secondary: below the mistake
+	# list, so the list is what the eye lands on after the win-rate bar.
+	panel.move_child(players_label, -1)
+	panel.move_child(ownership_label, -1)
 
 	# Comment box: edits the SGF C property of the node being shown
 	# (PLAN 6.2 info panel).
@@ -353,7 +377,7 @@ func _build_side_panel() -> VBoxContainer:
 	panel.add_child(comment_title)
 	comment_edit = TextEdit.new()
 	comment_edit.name = "Comment"
-	comment_edit.custom_minimum_size = Vector2(250, 90)
+	comment_edit.custom_minimum_size = Vector2(SIDE_WIDTH, 70)
 	comment_edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	comment_edit.placeholder_text = "No comment on this position"
 	comment_edit.text_changed.connect(_on_comment_changed)
@@ -422,6 +446,7 @@ func _engine_setup() -> void:
 		_set_engine_status("engine files missing: " + ", ".join(missing))
 		return
 	_set_engine_status("starting engine")
+	engine.nn_board_size = flow.tree.size
 	if not engine.start_engine():
 		_set_engine_status("engine failed to start: " + String(engine.start_error()))
 
@@ -471,26 +496,39 @@ func _run_review() -> void:
 	if analysis == null or engine == null or not engine.running:
 		_set_review_status("review needs a running engine")
 		return
+	if analysis.is_reviewing():
+		return
 	review = Review.new(flow.tree)
 	var settings: Node = get_node_or_null("/root/Settings")
 	var visits: int = int(settings.review_visits) if settings != null else 200
+	# Reviewing means reading the game, not playing on: switch to review mode
+	# so the board shows the engine's view and clicks explore variations.
+	_set_mode("review")
+	# The review owns the engine until it is done; a 2000-visit live search at
+	# higher priority would only slow it down.
+	analysis.cancel_live()
+	live_request_id = ""
 	_set_review_status("reviewing %d turns at %d visits each"
 		% [flow.tree.main_line_length(), visits])
 	analysis.request_review(flow.tree, visits)
+	_refresh()
 
 
 func _on_review_progress(done: int, total: int) -> void:
-	_set_review_status("review: %d of %d turns" % [done, total])
+	_set_review_status("Reviewing: %d of %d positions" % [done, total])
 	if graph_view != null:
 		graph_view.refresh_data()
+	# The mistake list fills in as the review goes, not only at the end; it is
+	# rebuilt at most every few answers to keep the UI cheap.
+	if done % 8 == 0:
+		_show_mistakes(false)
 
 
 func _on_review_finished() -> void:
-	var mistakes: int = review.mistakes().size() if review != null else 0
-	_set_review_status("review done, %d mistake(s) found" % mistakes)
 	_show_mistakes()
 	if graph_view != null:
 		graph_view.refresh_data()
+	_request_live_analysis()
 
 
 func _on_review_failed(message: String) -> void:
@@ -507,17 +545,17 @@ func _set_review_status(text: String) -> void:
 const MISTAKES_PER_PLAYER: int = 6
 
 
-func _show_mistakes() -> void:
+func _show_mistakes(update_status: bool = true) -> void:
 	if mistake_box == null:
 		return
 	for child in mistake_box.get_children():
 		child.queue_free()
 	if review == null:
 		if review_label != null:
-			review_label.text = "Review: not started"
+			review_label.text = "Review: not started (Review game, or Review menu)"
 		return
 	var found: Array = review.mistakes()
-	if review_label != null:
+	if review_label != null and update_status:
 		review_label.text = "Review: %d turn(s) analysed, %d mistake(s)" \
 			% [review.analysed_turns(), found.size()]
 	if found.is_empty():
@@ -554,8 +592,7 @@ func _mistake_button(info: Dictionary) -> Button:
 	button.focus_mode = Control.FOCUS_NONE
 	if node != null:
 		button.pressed.connect(func() -> void:
-			flow.go_to(node)
-			_refresh())
+			_goto(node))
 	return button
 
 
@@ -587,7 +624,11 @@ func _goto(node: GameNode) -> void:
 ## Live analysis of the shown position (PLAN 5.3). Analysis.request_live already
 ## terminates the query it replaces, so navigating cancels the old search.
 func _request_live_analysis() -> void:
-	if analysis == null or not live_enabled or flow.over:
+	if analysis == null or not live_enabled:
+		return
+	# A finished game is still analysed in review mode: that is when the user
+	# tries variations and wants the engine's view of them.
+	if flow.over and mode != "review":
 		return
 	# PLAN 6.1: during a game the engine is not asked for hints unless the user
 	# ticked "show hints". The opponent's own move request is separate.
@@ -595,6 +636,8 @@ func _request_live_analysis() -> void:
 		return
 	if engine == null or not engine.running:
 		return
+	if analysis.is_reviewing():
+		return  # the review answers every main-line position anyway
 	var settings: Node = get_node_or_null("/root/Settings")
 	var visits: int = int(settings.live_visits) if settings != null else 2000
 	live_request_id = analysis.request_live(flow.tree, flow.current(), visits)
@@ -773,6 +816,36 @@ func _on_pass() -> void:
 	_refresh()
 
 
+## Switches between play and review mode and keeps the View menu tick in step.
+func _set_mode(new_mode: String) -> void:
+	mode = new_mode
+	if view_menu != null:
+		view_menu.set_item_checked(view_menu.get_item_index(22), mode == "review")
+
+
+## A fresh game or a newly opened file has no review yet: forget the old one
+## (it belongs to a different tree) and hide the graph until the next review.
+func _forget_review() -> void:
+	if analysis != null:
+		analysis.cancel_review()
+	review = null
+	_set_mode("play")
+	_show_mistakes()
+
+
+## KataGo runs with its network buffers sized to the board (see nn_board_size in
+## katago_process.gd), so a game on a different size needs a restarted engine.
+func _sync_engine_board_size() -> void:
+	if engine == null:
+		return
+	engine.nn_board_size = flow.tree.size
+	if engine.running and int(engine.running_board_size) != flow.tree.size:
+		ai_pending_node = null
+		ai_request_id = ""
+		live_request_id = ""
+		_restart_engine()
+
+
 ## True during a game against the engine while it is the engine's move: the
 ## human may not place (or pass with) the opponent's colour.
 func _is_ai_turn() -> bool:
@@ -839,7 +912,9 @@ func _new_game_with(p: Dictionary) -> void:
 	ai_pending_node = null
 	ai_request_id = ""
 	live_request_id = ""
+	_forget_review()
 	flow.start(int(p["size"]), float(p["komi"]), String(p["rules"]), int(p["handicap"]))
+	_sync_engine_board_size()
 	ai_side = 0
 	if String(p["profile"]) != "":
 		ai.configure(String(p["profile"]))
@@ -901,8 +976,7 @@ func _on_file_menu(id: int) -> void:
 func _on_view_menu(id: int) -> void:
 	match id:
 		22:
-			mode = "review" if mode == "play" else "play"
-			view_menu.set_item_checked(view_menu.get_item_index(22), mode == "review")
+			_set_mode("review" if mode == "play" else "play")
 			_refresh()
 		25:
 			live_enabled = not live_enabled
@@ -1051,8 +1125,13 @@ func _on_open_path(path: String) -> void:
 		push_warning("Could not read %s: %s" % [path, str(parsed["error"])])
 		_refresh()
 		return
+	_forget_review()
+	# An opened game is for reading, not for the engine to play on.
+	ai_side = 0
 	flow.adopt_tree(parsed["tree"])
+	_sync_engine_board_size()
 	_refresh()
+	_request_live_analysis()
 
 
 ## Files dragged onto the window. Only SGF files are opened; the first one wins
@@ -1212,8 +1291,7 @@ func _refresh() -> void:
 	lines.append("Move %d, %s to play" % [flow.move_number() + 1,
 		"Black" if turn == Board.Stone.BLACK else "White"])
 	if mode == "review":
-		lines.append("Review mode: click a stone to follow that variation, " \
-			+ "click an empty point to add one, Delete removes it")
+		lines.append("Review mode (click the board to try variations)")
 	if flow.over:
 		lines.append("Game over: " + flow.result_text)
 	status_label.text = "\n".join(lines)
@@ -1244,6 +1322,10 @@ func _refresh() -> void:
 	if tree_view != null:
 		tree_view.show_position(flow.tree, node)
 		tree_view.scroll_to_current()
+	if graph_view != null:
+		graph_view.visible = review != null
+		if review != null:
+			graph_view.show_position(flow.tree, review, flow.tree.move_count_to(node))
 	if comment_edit != null:
 		_setting_comment = true
 		comment_edit.text = node.comment

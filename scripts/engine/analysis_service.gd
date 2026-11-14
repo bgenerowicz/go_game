@@ -105,6 +105,9 @@ func request_review(tree: GameTree, visits: int = DEFAULT_REVIEW_VISITS) -> Stri
 	_id_to_tree[id] = tree
 	_review_id = id
 	_review_total = turns.size()
+	# A second review in the same session must count from zero, or it would
+	# report "finished" after its first answer.
+	_review_done = 0
 	query["id"] = id
 	if not engine.send(query):
 		_id_to_node.erase(id)
@@ -139,6 +142,11 @@ func cancel_live() -> void:
 		engine.send({"id": _next_id("x"), "action": "terminate", "terminateId": _live_id})
 	_live_id = ""
 	_live_node = null
+
+
+## True while a full-game review query is still being answered.
+func is_reviewing() -> bool:
+	return _review_id != ""
 
 
 func cancel_review() -> void:

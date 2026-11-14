@@ -27,6 +27,15 @@ var human_model_path: String = ""
 var config_path: String = ""
 var extra_args: PackedStringArray = PackedStringArray()
 
+## Board size to size the neural-net buffers for, or 0 for KataGo's default
+## (19x19). By default every 9x9 or 13x13 position is evaluated padded out to
+## 19x19; sizing the buffer to the board measured about 2.5x faster on 9x9
+## (Apple M4, Metal). With requireMaxBoardSize the engine then only accepts that
+## one size, so the app restarts the engine when the board size changes.
+var nn_board_size: int = 0
+## The nn_board_size the running process was started with (0 = default).
+var running_board_size: int = 0
+
 ## Optional Settings node. In the running game this is the "Settings" autoload,
 ## looked up at /root/Settings. Tests (and any embedding code) can assign a node
 ## here directly, because absolute node lookups only work inside the active
@@ -353,6 +362,10 @@ func start_engine() -> bool:
 		args.append("-human-model")
 		args.append(human_model_path)
 	args.append_array(extra_args)
+	if nn_board_size > 0:
+		args.append("-override-config")
+		args.append("maxBoardXSizeForNNBuffer=%d,maxBoardYSizeForNNBuffer=%d,requireMaxBoardSize=true"
+			% [nn_board_size, nn_board_size])
 
 	_stop_requested = false
 	_reaped = false
@@ -369,6 +382,7 @@ func start_engine() -> bool:
 	pid = int(pipe["pid"])
 	last_pid = pid
 	running = true
+	running_board_size = nn_board_size
 
 	# Non-blocking pipes plus a short sleep keep shutdown clean: the threads
 	# notice _stop_requested and return, so wait_to_finish() cannot hang.

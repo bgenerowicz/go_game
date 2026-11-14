@@ -19,6 +19,9 @@ var turn_label: Label
 var analysis_label: Label
 ## Small second line under the turn: review-mode help.
 var mode_label: Label
+## Engine view: shows/hides the suggestion circles on the board.
+var candidates_toggle: CheckButton
+var _circles_help: Label
 ## Side-panel parts that change with the mode (see _update_panel_mode).
 var _actions: GridContainer
 var _review_card: Control
@@ -284,7 +287,7 @@ func _build_menu() -> MenuBar:
 	view_menu.add_check_item("Coordinates", 20)
 	view_menu.add_check_item("Move numbers", 21)
 	view_menu.add_check_item("Review mode", 22)
-	view_menu.add_check_item("Candidate circles", 23)
+	view_menu.add_check_item("Suggested moves on the board (C)", 23)
 	view_menu.add_check_item("Ownership heatmap", 24)
 	view_menu.add_check_item("Live analysis", 25)
 	# PLAN 6.1: analysis output is hidden during a game unless this is ticked.
@@ -357,6 +360,19 @@ func _build_side_panel() -> VBoxContainer:
 	# PLAN 6.2 ownership overlay: "Show 'Black +x.x' score estimate".
 	ownership_label = _text_label("OwnershipEstimate", FONT_SMALL, COLOR_MUTED)
 	view.add_child(ownership_label)
+	candidates_toggle = CheckButton.new()
+	candidates_toggle.name = "ShowCandidates"
+	candidates_toggle.text = "Suggested moves on the board (C)"
+	candidates_toggle.focus_mode = Control.FOCUS_NONE
+	candidates_toggle.add_theme_font_size_override("font_size", FONT_SMALL)
+	candidates_toggle.toggled.connect(func(on: bool) -> void:
+		_set_view_setting("show_candidates", on))
+	view.add_child(candidates_toggle)
+	var circles_help: Label = _text_label("CandidatesHelp", FONT_SMALL, COLOR_MUTED)
+	_circles_help = circles_help
+	circles_help.text = "Top: win chance %  ·  bottom: points lost vs the best " \
+		+ "move (blue)  ·  red ring: move played  ·  hover for the line"
+	view.add_child(circles_help)
 
 	# --- Review: progress, then the clickable mistake list ------------------
 	var review_box: VBoxContainer = _section(panel, "ReviewCard", "Review")
@@ -415,7 +431,7 @@ func _build_side_panel() -> VBoxContainer:
 	footer.add_child(restart_button)
 	panel.add_child(footer)
 	var hint: Label = _text_label("Keys", FONT_SMALL, COLOR_MUTED)
-	hint.text = "← → move   ↑ ↓ variation   Home/End   P pass   U undo   " \
+	hint.text = "← → move   ↑ ↓ variation   Home/End   P pass   U undo   C suggestions   " \
 		+ "Ctrl+O open   Ctrl+S save"
 	panel.add_child(hint)
 	return panel
@@ -943,6 +959,13 @@ func _on_pass() -> void:
 func _update_panel_mode() -> void:
 	if mode_label != null:
 		mode_label.visible = mode == "review"
+	# The circle toggle and its explanation only matter when the engine's view
+	# is on screen; during play with hints off the card stays a single line.
+	var hints: bool = _hints_visible()
+	if candidates_toggle != null:
+		candidates_toggle.visible = hints
+	if _circles_help != null:
+		_circles_help.visible = hints and board_view != null and board_view.show_candidates
 	if _actions != null:
 		_actions.visible = mode == "play"
 	var reviewed: bool = review != null
@@ -1179,8 +1202,18 @@ func _on_view_menu(id: int) -> void:
 			var settings: Node = get_node_or_null("/root/Settings")
 			if settings == null:
 				return
-			settings.set_value(key, not bool(settings.get(key)))
-			settings.save_settings()  # emits settings_changed -> _apply_settings
+			_set_view_setting(key, not bool(settings.get(key)))
+
+
+## Sets one overlay toggle. It lives in Settings so it persists, and the save
+## emits settings_changed, which brings the board, the View menu and the side
+## panel checkbox into step (_apply_settings).
+func _set_view_setting(key: String, value: bool) -> void:
+	var settings: Node = get_node_or_null("/root/Settings")
+	if settings == null or bool(settings.get(key)) == value:
+		return
+	settings.set_value(key, value)
+	settings.save_settings()
 
 
 ## The Settings key behind each View-menu overlay toggle.
@@ -1277,6 +1310,11 @@ func _input(event: InputEvent) -> void:
 		KEY_END:
 			flow.tree.go_to_main_line_end()
 			_refresh()
+			accept_event()
+		KEY_C:
+			var settings_node: Node = get_node_or_null("/root/Settings")
+			if settings_node != null:
+				_set_view_setting("show_candidates", not bool(settings_node.show_candidates))
 			accept_event()
 		KEY_P:
 			if mode == "review":
@@ -1467,6 +1505,7 @@ func _apply_settings() -> void:
 		board_view.show_coordinates = bool(settings.show_coordinates)
 		board_view.show_move_numbers = bool(settings.show_move_numbers)
 		_sync_view_checks()
+		_update_panel_mode()
 		_refresh()
 
 
@@ -1477,6 +1516,8 @@ func _sync_view_checks() -> void:
 	var settings: Node = get_node_or_null("/root/Settings")
 	if settings == null:
 		return
+	if candidates_toggle != null:
+		candidates_toggle.set_pressed_no_signal(bool(settings.show_candidates))
 	for pair in [[20, "show_coordinates"], [21, "show_move_numbers"],
 			[23, "show_candidates"], [24, "show_ownership"], [26, "show_hints"]]:
 		var id: int = int(pair[0])

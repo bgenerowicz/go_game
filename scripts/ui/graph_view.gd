@@ -8,7 +8,7 @@ extends Control
 
 signal turn_clicked(turn: int)
 
-const MARGIN_LEFT: float = 34.0
+const MARGIN_LEFT: float = 52.0  # room for "W 100%"
 const MARGIN_RIGHT: float = 34.0
 const MARGIN_TOP: float = 28.0  # room for the legend and progress note
 const MARGIN_BOTTOM: float = 18.0
@@ -90,7 +90,7 @@ func _draw() -> void:
 		var midline: bool = i == 2
 		draw_line(Vector2(plot.position.x, y), Vector2(plot.end.x, y),
 			_grid_color, 1.5 if midline else 0.5)
-		draw_string(_font(), Vector2(4.0, y + 4.0), "%d%%" % int(fraction * 100.0),
+		draw_string(_font(), Vector2(4.0, y + 4.0), _winrate_label(fraction),
 			HORIZONTAL_ALIGNMENT_LEFT, 0, 10, _line_color)
 
 	# Vertical grid, plus a label for the last move.
@@ -182,22 +182,38 @@ func _turn_count() -> int:
 	return maxi(0, tree.main_line().size() - 1)
 
 
-## The score-lead scale, padded so the line never touches the frame.
+## The win-rate axis read from both players' sides, so the middle line is an
+## even game on this axis as it is 0 on the score axis: "B 100%" at the top,
+## "even" in the middle, "W 100%" at the bottom.
+static func _winrate_label(black_fraction: float) -> String:
+	if is_equal_approx(black_fraction, 0.5):
+		return "even"
+	if black_fraction > 0.5:
+		return "B %d%%" % int(round(black_fraction * 100.0))
+	return "W %d%%" % int(round((1.0 - black_fraction) * 100.0))
+
+
+## The score-lead scale, symmetric around 0 so that 0 (an even game) sits on
+## the same middle line as 50 % on the win-rate axis. The half-range is the
+## largest lead in the game with a little headroom, rounded up to a tidy
+## number (2, 5, 10, 20, 50 ...).
 func _score_bounds() -> Vector2:
-	var low: float = INF
-	var high: float = -INF
+	var largest: float = 0.0
 	for value in _score_line:
 		if value == null:
 			continue
-		low = minf(low, float(value))
-		high = maxf(high, float(value))
-	if low == INF:
-		return Vector2(-10.0, 10.0)
-	if high - low < 4.0:
-		var middle: float = (low + high) / 2.0
-		return Vector2(middle - 2.0, middle + 2.0)
-	var pad: float = (high - low) * 0.1
-	return Vector2(low - pad, high + pad)
+		largest = maxf(largest, absf(float(value)))
+	var limit: float = _nice_ceiling(maxf(2.0, largest * 1.1))
+	return Vector2(-limit, limit)
+
+
+## The smallest of 1, 2, 5 x 10^n that is at least value.
+static func _nice_ceiling(value: float) -> float:
+	var magnitude: float = pow(10.0, floor(log(value) / log(10.0)))
+	for step in [1.0, 2.0, 5.0, 10.0]:
+		if step * magnitude >= value - 0.0001:
+			return step * magnitude
+	return 10.0 * magnitude
 
 
 ## Score-lead labels on the right edge, in the orange of the score line: the
@@ -206,12 +222,15 @@ func _draw_score_axis(plot: Rect2, bounds: Vector2) -> void:
 	var span: float = bounds.y - bounds.x
 	if span <= 0.0:
 		return
-	var ticks: Array = [bounds.x, bounds.y]
-	if bounds.x < 0.0 and bounds.y > 0.0:
-		ticks.append(0.0)
+	# Same five heights as the win-rate grid lines, so each label sits on one.
+	var ticks: Array = []
+	for i in 5:
+		ticks.append(bounds.x + span * float(i) / 4.0)
 	for value in ticks:
 		var y: float = plot.end.y - (float(value) - bounds.x) / span * plot.size.y
-		var text: String = "0" if absf(value) < 0.05 else "%+.0f" % value
+		var text: String = "0"
+		if absf(value) >= 0.05:
+			text = "%+.0f" % value if absf(value - round(value)) < 0.01 else "%+.1f" % value
 		draw_string(_font(), Vector2(plot.end.x + 4.0, y + 4.0), text,
 			HORIZONTAL_ALIGNMENT_LEFT, 0, 10, _score_color)
 
@@ -220,10 +239,10 @@ func _draw_score_axis(plot: Rect2, bounds: Vector2) -> void:
 ## corner of the plot.
 func _draw_legend(plot: Rect2) -> void:
 	var entries: Array = [
-		[_line_color, "line", "Black's chance to win (left axis)"],
+		[_line_color, "line", "Win chance (left axis)"],
 	]
 	if show_score:
-		entries.append([_score_color, "line", "Score lead, + = Black ahead (right axis)"])
+		entries.append([_score_color, "line", "Score lead in points (right axis)"])
 	entries.append([_mistake_color(Review.KIND_INACCURACY), "dot", "inaccuracy"])
 	entries.append([_mistake_color(Review.KIND_MISTAKE), "dot", "mistake"])
 	entries.append([_mistake_color(Review.KIND_BLUNDER), "dot", "blunder"])

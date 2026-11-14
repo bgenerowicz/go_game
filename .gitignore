@@ -1,18 +1,26 @@
-# Large third-party downloads: copied between machines by hand, not through git
-tools/*
-!tools/README.md
+# Large third-party content: copied between machines by hand, not through git
 docs/godot/*
 !docs/godot/.gitkeep
 engine/win/*
 !engine/win/.gitkeep
+engine/macos/*
+!engine/macos/.gitkeep
 engine/models/*
 !engine/models/.gitkeep
+
+# Unpacked runtimes for this VM (Godot + KataGo), prepared from local-assets
+runtime/
+
+# KataGo writes run logs into the working directory
+analysis_logs/
 
 # Godot
 .godot/
 *.translation
-export_presets.cfg
 .import/
+
+# Python helper scripts in tools/
+__pycache__/
 
 # OS
 .DS_Store

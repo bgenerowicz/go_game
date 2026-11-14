@@ -12,3 +12,22 @@ These files are not in git (see `.gitignore`). Copy the whole project folder to 
 | `engine/models/human.bin.gz` | used as is | `b18c384nbt-humanv0.bin.gz` from https://katagotraining.org/extra_networks/ |
 
 On macOS, KataGo itself comes from Homebrew: `brew install katago`. Only the two model files need copying.
+
+# Helper scripts in this folder
+
+These are small tools, not part of the game. They are in git and need no downloads.
+
+| Script | What it does |
+|---|---|
+| `pixel_assert.py` | Reads the `PIXEL col,row C x y` lines that `tests/render_check.gd` prints and checks the saved PNG really has a black stone, white stone or bare wood at each of those coordinates. Exits non-zero on a mismatch. Standard library only. |
+| `make_analysis_cfg.py` | Writes `engine/analysis.cfg` with the keys the analysis engine needs, so the config is reproducible instead of hand-typed. |
+| `board_measure.py` | Reports the board geometry (origin, cell size) it finds in a screenshot, for debugging the drawing when a pixel assertion fails. |
+| `spike_katago.gd`, `spike_process.gd`, `probe_paths.gd` | The throwaway spikes from milestone 4, kept as a record of how `OS.execute_with_pipe` behaves and how the engine paths are probed. |
+
+Example, in one command so the image exists before it is read:
+
+```
+with-display godot --path . --script tests/render_check.gd > /tmp/render.txt 2>&1
+python3 tools/pixel_assert.py /tmp/render.txt /tmp/go_game_render.png
+```
+

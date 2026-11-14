@@ -16,6 +16,7 @@ func run() -> void:
 	_test_adopt_tree()
 	_test_handicap()
 	_test_review_editing()
+	_test_played_move_is_main_line()
 
 
 func _test_turns_alternate() -> void:
@@ -286,4 +287,28 @@ func _test_review_editing() -> void:
 	a.check_eq(f.current().comment, "my note", "comment stored on the node")
 	f.set_comment("")
 	a.check_eq(f.current().comment, "", "an empty comment clears it")
+
+
+func _test_played_move_is_main_line() -> void:
+	a.section("flow: a played move becomes the main line")
+	var f: GameFlow = GameFlow.new()
+	f.start(9, 6.5, "japanese", 0)
+	f.play(4, 4)
+	var game_pos: GameNode = f.current()
+	# A move tried in analysis at the game position extends the line first...
+	var tried: GameNode = f.add_variation(2, 2)
+	a.check(tried != null and game_pos.children[0] == tried, "the analysis move is first")
+	# ...then the real game continues from the game position with another move.
+	f.tree.go_to(game_pos)
+	a.check(f.play(6, 6), "the real move is played")
+	var real: GameNode = f.current()
+	a.check(game_pos.children[0] == real, "the played move is now the main line")
+	a.check(game_pos.children.has(tried), "the tried move is kept as a sideline")
+	a.check_eq(f.tree.main_line().back(), real, "the main line ends at the played move")
+	# Passing in the game promotes the same way.
+	f.tree.go_to(real)
+	f.add_variation(3, 3)
+	f.tree.go_to(real)
+	f.pass_move()
+	a.check(real.children[0] == f.current(), "a played pass is the main line too")
 

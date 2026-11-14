@@ -85,9 +85,20 @@ func turn_number() -> int:
 func play(x: int, y: int) -> bool:
 	if not is_legal_at(x, y):
 		return false
-	tree.play_move(turn(), x, y)
+	_make_main_line(tree.play_move(turn(), x, y))
 	_announce()
 	return true
+
+
+## A move played in the game (not a review-mode variation) is the game: it
+## becomes the first child, so analysis sidelines tried at this point while
+## the game was running stay sidelines and the main line is what was played.
+func _make_main_line(node: GameNode) -> void:
+	var parent: GameNode = node.parent if node != null else null
+	if parent == null or parent.children.is_empty() or parent.children[0] == node:
+		return
+	parent.children.erase(node)
+	parent.children.insert(0, node)
 ## Review-mode editing (PLAN 6.2: "clicking the board in review mode adds a
 ## variation move"). Works after the game is over and never ends it, because a
 ## variation is a hypothesis, not a played game.
@@ -142,7 +153,7 @@ func set_comment(text: String) -> void:
 func pass_move() -> bool:
 	if over:
 		return false
-	tree.play_pass(turn())
+	_make_main_line(tree.play_pass(turn()))
 	if board().consecutive_passes >= 2:
 		over = true
 		ended_by_passes = true

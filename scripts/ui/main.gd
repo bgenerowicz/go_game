@@ -27,6 +27,8 @@ var deeper_button: Button
 var ownership_toggle: CheckButton
 ## Engine view: automatic analysis of the shown position on/off.
 var live_toggle: CheckButton
+## Engine view: analysis (review) mode on/off, without a full review.
+var analysis_mode_toggle: CheckButton
 var _circles_help: Label
 ## Side-panel parts that change with the mode (see _update_panel_mode).
 var _actions: GridContainer
@@ -320,7 +322,7 @@ func _build_menu() -> MenuBar:
 	view_menu.name = "View"
 	view_menu.add_check_item("Coordinates", 20)
 	view_menu.add_check_item("Move numbers", 21)
-	view_menu.add_check_item("Review mode", 22)
+	view_menu.add_check_item("Analysis mode (A)", 22)
 	view_menu.add_check_item("Suggested moves on the board (C)", 23)
 	view_menu.add_check_item("Ownership on the board (O)", 24)
 	view_menu.add_check_item("Live analysis (L)", 25)
@@ -361,7 +363,7 @@ func _build_side_panel() -> VBoxContainer:
 	turn_label = _text_label("Turn", FONT_LARGE, COLOR_TEXT)
 	game.add_child(turn_label)
 	mode_label = _text_label("Mode", FONT_SMALL, COLOR_ACCENT)
-	mode_label.text = "Review mode: click the board to try variations"
+	mode_label.text = "Analysis mode: click the board to try variations"
 	mode_label.visible = false
 	game.add_child(mode_label)
 	players_label = _text_label("Players", FONT_BODY, COLOR_TEXT)
@@ -385,6 +387,15 @@ func _build_side_panel() -> VBoxContainer:
 
 	# --- Engine view of the shown position ----------------------------------
 	var view: VBoxContainer = _section(panel, "AnalysisCard", "Engine view")
+	# Always visible: the way into the engine's view of the current position,
+	# without having to run a full-game review first.
+	analysis_mode_toggle = CheckButton.new()
+	analysis_mode_toggle.name = "AnalysisMode"
+	analysis_mode_toggle.text = "Analysis mode (A)"
+	analysis_mode_toggle.focus_mode = Control.FOCUS_NONE
+	analysis_mode_toggle.add_theme_font_size_override("font_size", FONT_BODY)
+	analysis_mode_toggle.toggled.connect(_set_analysis_mode)
+	view.add_child(analysis_mode_toggle)
 	winrate_bar = WinRateBar.new()
 	winrate_bar.name = "WinRateBar"
 	winrate_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -485,7 +496,7 @@ func _build_side_panel() -> VBoxContainer:
 	footer.add_child(restart_button)
 	panel.add_child(footer)
 	var hint: Label = _text_label("Keys", FONT_SMALL, COLOR_MUTED)
-	hint.text = "← → move   ↑ ↓ variation   Home/End   P pass   U undo   C suggestions   O ownership   L live   " \
+	hint.text = "← → move   ↑ ↓ variation   Home/End   P pass   U undo   A analysis   C suggestions   O ownership   L live   " \
 		+ "Ctrl+O open   Ctrl+S save"
 	panel.add_child(hint)
 	return panel
@@ -932,7 +943,7 @@ func _clear_analysis_readout() -> void:
 		winrate_bar.visible = _hints_visible()
 	if analysis_label != null:
 		analysis_label.text = "" if _hints_visible() \
-			else "Hints are off during play (View › Show hints during a game)"
+			else "Turn on Analysis mode (A) to see the engine's view of this position"
 	if ownership_label != null:
 		ownership_label.text = ""
 
@@ -1139,6 +1150,45 @@ func _set_mode(new_mode: String) -> void:
 	mode = new_mode
 	if view_menu != null:
 		view_menu.set_item_checked(view_menu.get_item_index(22), mode == "review")
+	if analysis_mode_toggle != null:
+		analysis_mode_toggle.set_pressed_no_signal(mode == "review")
+
+
+## The game position when Analysis mode was turned on mid-game.
+var _analysis_return: GameNode = null
+
+
+## True while a node is still attached to this game's tree.
+func _in_tree(node: GameNode) -> bool:
+	var walk: GameNode = node
+	while walk != null and walk != flow.tree.root:
+		walk = walk.parent
+	return walk == flow.tree.root
+
+
+## The Analysis mode switch / A key / View menu item: look at the engine's
+## view of any position without running a full review. Leaving it during a
+## game against the engine hands the move back to the opponent if it is its
+## turn.
+func _set_analysis_mode(on: bool) -> void:
+	if on and mode == "play" and not flow.over:
+		# Remember where the game stands: moves tried in analysis may extend
+		# the line from here, so "the end of the main line" is not reliable.
+		_analysis_return = flow.current()
+	_set_mode("review" if on else "play")
+	# Back to playing a game still in progress: return to the game position
+	# itself, not wherever analysis left the board. The next real move then
+	# becomes the main line and the tried moves stay a sideline.
+	if not on and not flow.over:
+		if _analysis_return != null and _in_tree(_analysis_return):
+			flow.tree.go_to(_analysis_return)
+		else:
+			flow.tree.go_to_main_line_end()
+	if not on:
+		_analysis_return = null
+	_refresh()
+	if not on:
+		_offer_ai_move()
 
 
 ## A fresh game or a newly opened file has no review yet: forget the old one
@@ -1148,6 +1198,7 @@ func _forget_review() -> void:
 		analysis.cancel_review()
 	review = null
 	_review_follow = null
+	_analysis_return = null
 	_set_mode("play")
 	_show_mistakes()
 
@@ -1311,8 +1362,7 @@ func _on_file_menu(id: int) -> void:
 func _on_view_menu(id: int) -> void:
 	match id:
 		22:
-			_set_mode("review" if mode == "play" else "play")
-			_refresh()
+			_set_analysis_mode(mode == "play")
 		25:
 			_set_live_enabled(not live_enabled)
 		20, 21, 23, 24, 26:
@@ -1453,6 +1503,9 @@ func _input(event: InputEvent) -> void:
 			var settings_node: Node = get_node_or_null("/root/Settings")
 			if settings_node != null:
 				_set_view_setting("show_candidates", not bool(settings_node.show_candidates))
+			accept_event()
+		KEY_A:
+			_set_analysis_mode(mode == "play")
 			accept_event()
 		KEY_L:
 			_set_live_enabled(not live_enabled)

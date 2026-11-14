@@ -187,7 +187,34 @@ func _run() -> void:
 		_check(tree.current == target, "Up moved back to the previous variation")
 
 	# --- autosave writes a file ---------------------------------------------
-	_check(String(root.autosave()) != "", "autosave wrote a file")
+	# Earlier sections opened an SGF, which is never auto-saved; start a game.
+	root._new_game_with({"size": 19, "komi": 6.5, "rules": "japanese", "handicap": 0,
+		"profile": "", "human_colour": "black"})
+	root._on_board_clicked(Coords.from_gtp("Q16", 19))
+	var first_save: String = String(root.autosave())
+	_check(first_save != "", "autosave wrote a file")
+	_check(first_save.begins_with("user://test_games/"),
+		"a scripted run saves to the test folder, not the user's games: %s" % first_save)
+	_check(not first_save.get_file().contains(":"), "no colons in the saved file name")
+	# Each new game gets its own file; a second game must not overwrite the first.
+	root._new_game_with({"size": 13, "komi": 6.5, "rules": "japanese", "handicap": 0,
+		"profile": "rank_5k", "human_colour": "black"})
+	root._on_board_clicked(Coords.from_gtp("D4", 13))
+	var second_save: String = String(root.autosave())
+	_check(second_save != "" and second_save != first_save,
+		"a second game saves to a new file (%s)" % second_save)
+	_check(second_save.contains("13x13 vs KataGo 5k"), "file name says the board and opponent")
+	_check(root.flow.tree.black_name == "You" and root.flow.tree.white_name == "KataGo 5k",
+		"player names are recorded for the SGF")
+	# Opening a finished game is reading it, not playing it: no duplicate copy.
+	var saved_count: int = DirAccess.get_files_at("user://test_games").size()
+	root._on_open_path(ProjectSettings.globalize_path(second_save))
+	root.flow.resign(Board.Stone.BLACK)
+	await process_frame
+	_check(DirAccess.get_files_at("user://test_games").size() == saved_count,
+		"opening a saved game does not write another copy")
+	root._new_game_with({"size": 19, "komi": 6.5, "rules": "japanese", "handicap": 0,
+		"profile": "", "human_colour": "black"})
 
 	# --- the menu bar is wired up --------------------------------------------
 	var menu: Node = root.get_node_or_null("Column/Menu")

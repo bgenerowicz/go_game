@@ -56,6 +56,8 @@ var live_request_id: String = ""
 
 
 func _ready() -> void:
+	if get_tree().current_scene != self:
+		save_dir = TEST_SAVE_DIR
 	var settings: Node = get_node_or_null("/root/Settings")
 	if settings != null:
 		flow.start(int(settings.board_size), float(settings.komi),
@@ -245,6 +247,9 @@ func _build_menu() -> MenuBar:
 	file_menu.add_item("Open SGF...", 10)
 	file_menu.add_item("Save SGF...", 11)
 	file_menu.add_item("Save to auto-save folder", 12)
+	file_menu.add_separator()
+	file_menu.add_item("Open a saved game...", 14)
+	file_menu.add_item("Show saved games in Finder", 15)
 	file_menu.add_separator()
 	file_menu.add_item("Quit", 13)
 	file_menu.id_pressed.connect(_on_file_menu)
@@ -925,6 +930,13 @@ func _new_game_with(p: Dictionary) -> void:
 		if human_colour == "random":
 			human_black = _random.next_bool()
 		ai_side = Board.Stone.WHITE if human_black else Board.Stone.BLACK
+		# Named in the SGF (PB/PW), so a saved game says who played whom.
+		flow.tree.black_name = _opponent_name() if ai_side == Board.Stone.BLACK else "You"
+		flow.tree.white_name = _opponent_name() if ai_side == Board.Stone.WHITE else "You"
+	# Every new game gets its own file; without this a second game in the same
+	# session overwrote the first one's save.
+	_game_from_file = false
+	reset_autosave()
 	_refresh()
 	_offer_ai_move()
 
@@ -968,9 +980,19 @@ func _on_file_menu(id: int) -> void:
 		11:
 			_popup_save()
 		12:
-			autosave()
+			autosave(true)
 		13:
+			if mode == "play":
+				_save_if_played()
 			get_tree().quit()
+		14:
+			# Played games live in a hidden Library folder; open the dialog there.
+			DirAccess.make_dir_recursive_absolute(save_dir)
+			open_dialog.current_dir = ProjectSettings.globalize_path(save_dir)
+			open_dialog.popup_centered(Vector2i(900, 600))
+		15:
+			DirAccess.make_dir_recursive_absolute(save_dir)
+			OS.shell_open(ProjectSettings.globalize_path(save_dir))
 
 
 func _on_view_menu(id: int) -> void:
@@ -1128,6 +1150,10 @@ func _on_open_path(path: String) -> void:
 	_forget_review()
 	# An opened game is for reading, not for the engine to play on.
 	ai_side = 0
+	# Set before adopt_tree: adopting a finished game reports "game over",
+	# which would otherwise auto-save a duplicate of the file just opened.
+	_game_from_file = true
+	reset_autosave()
 	flow.adopt_tree(parsed["tree"])
 	_sync_engine_board_size()
 	_refresh()
@@ -1168,23 +1194,57 @@ func _on_save_path(path: String) -> void:
 var _autosave_path: String = ""
 
 
+## Where played games are saved. The real app uses user://games; a scripted
+## run (the tests, which instantiate main.tscn themselves rather than running it
+## as the main scene) gets its own folder so it never mixes test games in with
+## the user's.
+var save_dir: String = SAVE_DIR
+const TEST_SAVE_DIR: String = "user://test_games"
+## True while the shown game was opened from a file rather than played here.
+## Such a game is not auto-saved: it already has a file, and saving it again
+## would only make a duplicate every time a finished game is opened.
+var _game_from_file: bool = false
+
+
 ## Call when a game is replaced or loaded so the next save starts a new file.
 func reset_autosave() -> void:
 	_autosave_path = ""
 
 
-func autosave() -> String:
+## A file name a person can scan in Finder: date, time, board size and the
+## opponent, e.g. "2026-11-14 13-32 13x13 vs KataGo 5k". No colons: Finder
+## shows them as slashes.
+func _autosave_stem() -> String:
+	var t: Dictionary = Time.get_datetime_dict_from_system()
+	var stem: String = "%04d-%02d-%02d %02d-%02d %dx%d" % [int(t["year"]), int(t["month"]),
+		int(t["day"]), int(t["hour"]), int(t["minute"]), flow.tree.size, flow.tree.size]
+	if ai_side != 0:
+		stem += " vs " + _opponent_name()
+	return stem
+
+
+## "KataGo 5k" for the human-like profile rank_5k, "KataGo" otherwise.
+func _opponent_name() -> String:
+	var profile: String = ai.profile if ai != null else ""
+	if profile.begins_with("rank_"):
+		return "KataGo " + profile.substr(5)
+	if profile.begins_with("preaz_"):
+		return "KataGo %s (pre-AI)" % profile.substr(6)
+	return "KataGo"
+
+
+func autosave(force: bool = false) -> String:
+	if _game_from_file and not force:
+		return ""  # an opened game already has its file; Save writes it explicitly
 	if _autosave_path == "":
-		DirAccess.make_dir_recursive_absolute(SAVE_DIR)
-		var stamp: String = Time.get_datetime_string_from_system(false, true)
-		# "2026-11-14T12:34:56" -> "2026-11-14_1234"
-		stamp = stamp.replace("T", "_").substr(0, 16)
-		_autosave_path = SAVE_DIR.path_join("%s.sgf" % stamp)
+		DirAccess.make_dir_recursive_absolute(save_dir)
+		var stem: String = _autosave_stem()
+		_autosave_path = save_dir.path_join("%s.sgf" % stem)
 		if FileAccess.file_exists(_autosave_path):
 			var n: int = 2
-			while FileAccess.file_exists(SAVE_DIR.path_join("%s-%d.sgf" % [stamp, n])):
+			while FileAccess.file_exists(save_dir.path_join("%s-%d.sgf" % [stem, n])):
 				n += 1
-			_autosave_path = SAVE_DIR.path_join("%s-%d.sgf" % [stamp, n])
+			_autosave_path = save_dir.path_join("%s-%d.sgf" % [stem, n])
 	var file: FileAccess = FileAccess.open(_autosave_path, FileAccess.WRITE)
 	if file == null:
 		push_warning("Could not write %s" % _autosave_path)

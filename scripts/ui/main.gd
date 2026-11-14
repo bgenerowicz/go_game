@@ -79,10 +79,33 @@ func _ready() -> void:
 			window.files_dropped.connect(_on_files_dropped)
 		# Milestone 9: below this the board, the side panel and the move tree
 		# cannot all be shown, so the window refuses to shrink further.
-		window.min_size = Vector2i(760, 560)
+		_fit_window_to_screen(window)
 	_engine_setup()
 	_refresh()
 	print("go_game: main scene loaded")
+
+
+## Window sizes are in physical pixels, so on a HiDPI (Retina) screen the
+## project's 1280x800 opens as a quarter-size window. Scale it (and the minimum
+## size) by the screen's scale factor, keep it within the usable screen area,
+## and centre it. The canvas_items stretch mode then scales the UI to match.
+## Skipped for embedded/headless runs, where there is no real screen.
+func _fit_window_to_screen(window: Window) -> void:
+	var min_logical: Vector2i = Vector2i(760, 560)
+	if DisplayServer.get_name() == "headless" or window != get_tree().root:
+		window.min_size = min_logical
+		return
+	var screen: int = window.current_screen
+	var scale: float = maxf(1.0, DisplayServer.screen_get_scale(screen))
+	var usable: Rect2i = DisplayServer.screen_get_usable_rect(screen)
+	var wanted: Vector2 = Vector2(1280, 800) * scale
+	var limit: Vector2 = Vector2(usable.size) * 0.9
+	var fit: float = minf(1.0, minf(limit.x / wanted.x, limit.y / wanted.y))
+	var size: Vector2i = Vector2i(wanted * fit)
+	window.min_size = Vector2i(Vector2(min_logical) * scale).min(size)
+	if window.mode == Window.MODE_WINDOWED:
+		window.size = size
+		window.position = usable.position + (usable.size - size) / 2
 
 
 func _on_position_changed(_node: GameNode) -> void:

@@ -73,8 +73,11 @@ func _check_size(size: Vector2i) -> void:
 		"%s: board view still visible" % label, str(main_root.board_view.size))
 	var cell: float = main_root.board_view.cell_size()
 	_check(cell >= 10.0, "%s: cells stay clickable (%.1f px)" % [label, cell])
-	_check(main_root.board_view.size.x <= float(size.x) + 0.5
-		and main_root.board_view.size.y <= float(size.y) + 0.5,
+	# With the canvas_items stretch mode, control sizes are in the stretched
+	# (logical) units of the visible rect, not raw window pixels.
+	var visible: Vector2 = get_root().get_visible_rect().size
+	_check(main_root.board_view.size.x <= visible.x + 0.5
+		and main_root.board_view.size.y <= visible.y + 0.5,
 		"%s: board view fits the window" % label, str(main_root.board_view.size))
 
 	# The side panel must not be squeezed out of existence: it is inside a

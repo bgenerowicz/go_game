@@ -21,6 +21,10 @@ var analysis_label: Label
 var mode_label: Label
 ## Engine view: shows/hides the suggestion circles on the board.
 var candidates_toggle: CheckButton
+## Engine view: run a longer search of the shown position.
+var deeper_button: Button
+## Engine view: shows/hides the ownership heatmap on the board.
+var ownership_toggle: CheckButton
 var _circles_help: Label
 ## Side-panel parts that change with the mode (see _update_panel_mode).
 var _actions: GridContainer
@@ -204,6 +208,8 @@ func _finish_scoring(node: GameNode) -> void:
 		board_view.show_ownership = true
 		if view_menu != null:
 			view_menu.set_item_checked(view_menu.get_item_index(24), true)
+		if ownership_toggle != null:
+			ownership_toggle.set_pressed_no_signal(true)
 	_refresh()
 
 
@@ -314,7 +320,7 @@ func _build_menu() -> MenuBar:
 	view_menu.add_check_item("Move numbers", 21)
 	view_menu.add_check_item("Review mode", 22)
 	view_menu.add_check_item("Suggested moves on the board (C)", 23)
-	view_menu.add_check_item("Ownership heatmap", 24)
+	view_menu.add_check_item("Ownership on the board (O)", 24)
 	view_menu.add_check_item("Live analysis", 25)
 	# PLAN 6.1: analysis output is hidden during a game unless this is ticked.
 	view_menu.add_check_item("Show hints during a game", 26)
@@ -386,6 +392,10 @@ func _build_side_panel() -> VBoxContainer:
 	# PLAN 6.2 ownership overlay: "Show 'Black +x.x' score estimate".
 	ownership_label = _text_label("OwnershipEstimate", FONT_SMALL, COLOR_MUTED)
 	view.add_child(ownership_label)
+	deeper_button = _button("Analyse deeper", _analyse_deeper)
+	deeper_button.name = "AnalyseDeeper"
+	deeper_button.add_theme_font_size_override("font_size", FONT_SMALL)
+	view.add_child(deeper_button)
 	candidates_toggle = CheckButton.new()
 	candidates_toggle.name = "ShowCandidates"
 	candidates_toggle.text = "Suggested moves on the board (C)"
@@ -394,6 +404,14 @@ func _build_side_panel() -> VBoxContainer:
 	candidates_toggle.toggled.connect(func(on: bool) -> void:
 		_set_view_setting("show_candidates", on))
 	view.add_child(candidates_toggle)
+	ownership_toggle = CheckButton.new()
+	ownership_toggle.name = "ShowOwnership"
+	ownership_toggle.text = "Ownership on the board (O)"
+	ownership_toggle.focus_mode = Control.FOCUS_NONE
+	ownership_toggle.add_theme_font_size_override("font_size", FONT_SMALL)
+	ownership_toggle.toggled.connect(func(on: bool) -> void:
+		_set_view_setting("show_ownership", on))
+	view.add_child(ownership_toggle)
 	var circles_help: Label = _text_label("CandidatesHelp", FONT_SMALL, COLOR_MUTED)
 	_circles_help = circles_help
 	circles_help.text = "Top: win chance %  ·  bottom: points lost vs the best " \
@@ -457,7 +475,7 @@ func _build_side_panel() -> VBoxContainer:
 	footer.add_child(restart_button)
 	panel.add_child(footer)
 	var hint: Label = _text_label("Keys", FONT_SMALL, COLOR_MUTED)
-	hint.text = "← → move   ↑ ↓ variation   Home/End   P pass   U undo   C suggestions   " \
+	hint.text = "← → move   ↑ ↓ variation   Home/End   P pass   U undo   C suggestions   O ownership   " \
 		+ "Ctrl+O open   Ctrl+S save"
 	panel.add_child(hint)
 	return panel
@@ -798,7 +816,51 @@ func _request_live_analysis() -> void:
 		return  # the review answers every main-line position anyway
 	var settings: Node = get_node_or_null("/root/Settings")
 	var visits: int = int(settings.live_visits) if settings != null else 2000
-	live_request_id = analysis.request_live(flow.tree, flow.current(), visits)
+	var node: GameNode = flow.current()
+	# Already analysed at least this deeply (coming back to a position): the
+	# engine would only repeat itself. "Analyse deeper" asks for more.
+	if int((node.analysis as Dictionary).get("visits", 0)) >= visits:
+		return
+	live_request_id = analysis.request_live(flow.tree, node, visits)
+	_live_target = visits
+
+
+## "Analysing… (N visits)" while a search of the shown position is still short
+## of its target, otherwise what pressing the button would do.
+func _update_deeper_button(node: GameNode) -> void:
+	if deeper_button == null or node == null:
+		return
+	var have: int = int((node.analysis as Dictionary).get("visits", 0))
+	var searching: bool = analysis != null and analysis.live_node() == node \
+		and have < int(_live_target * 0.98)
+	if searching:
+		deeper_button.text = "Analysing… %d / %d visits" % [have, _live_target]
+	else:
+		deeper_button.text = "Analyse deeper" if have > 0 else "Analyse this position"
+
+
+## The visit count the current live search is aiming for.
+var _live_target: int = 0
+
+
+## "Analyse deeper" in the Engine view: search the shown position again with
+## twice the visits it already has (at least the live budget). Works on any
+## position, sidelines included, and also when live analysis is switched off.
+func _analyse_deeper() -> void:
+	if analysis == null or engine == null or not engine.running:
+		_set_engine_status("the engine is not running")
+		return
+	if analysis.is_reviewing():
+		return
+	var settings: Node = get_node_or_null("/root/Settings")
+	var budget: int = int(settings.live_visits) if settings != null else 2000
+	var node: GameNode = flow.current()
+	var have: int = int((node.analysis as Dictionary).get("visits", 0))
+	var target: int = maxi(budget, have * 2)
+	analysis.cancel_live()  # a running search of this node would be reused as is
+	live_request_id = analysis.request_live(flow.tree, node, target)
+	_live_target = target
+	_update_deeper_button(node)
 
 
 func _on_analysis_updated(node: GameNode) -> void:
@@ -809,6 +871,7 @@ func _on_analysis_updated(node: GameNode) -> void:
 	if node == flow.current() and _hints_visible():
 		board_view.set_analysis(node.analysis)
 		_show_analysis(node)
+		_update_deeper_button(node)
 	if node == ai_pending_node and ai_side != 0:
 		_play_ai_move(node)
 
@@ -1011,6 +1074,10 @@ func _update_panel_mode() -> void:
 	var hints: bool = _hints_visible()
 	if candidates_toggle != null:
 		candidates_toggle.visible = hints
+	if deeper_button != null:
+		deeper_button.visible = hints
+	if ownership_toggle != null:
+		ownership_toggle.visible = hints
 	if _circles_help != null:
 		_circles_help.visible = hints and board_view != null and board_view.show_candidates
 	if _actions != null:
@@ -1362,6 +1429,11 @@ func _input(event: InputEvent) -> void:
 			if settings_node != null:
 				_set_view_setting("show_candidates", not bool(settings_node.show_candidates))
 			accept_event()
+		KEY_O:
+			var o_settings: Node = get_node_or_null("/root/Settings")
+			if o_settings != null:
+				_set_view_setting("show_ownership", not bool(o_settings.show_ownership))
+			accept_event()
 		KEY_P:
 			if mode == "review":
 				var added: GameNode = flow.add_pass_variation()
@@ -1564,6 +1636,8 @@ func _sync_view_checks() -> void:
 		return
 	if candidates_toggle != null:
 		candidates_toggle.set_pressed_no_signal(bool(settings.show_candidates))
+	if ownership_toggle != null:
+		ownership_toggle.set_pressed_no_signal(bool(settings.show_ownership))
 	for pair in [[20, "show_coordinates"], [21, "show_move_numbers"],
 			[23, "show_candidates"], [24, "show_ownership"], [26, "show_hints"]]:
 		var id: int = int(pair[0])
@@ -1653,3 +1727,7 @@ func _refresh() -> void:
 		_setting_comment = true
 		comment_edit.text = node.comment
 		_setting_comment = false
+	_update_deeper_button(node)
+	# Whatever is now on screen, a sideline included, gets the engine's view
+	# when that view is shown (review mode, or hints on during play).
+	_request_live_analysis()

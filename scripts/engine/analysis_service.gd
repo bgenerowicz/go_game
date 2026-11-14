@@ -146,6 +146,11 @@ func cancel_live() -> void:
 	_live_node = null
 
 
+## The position the current live search is about, or null.
+func live_node() -> GameNode:
+	return _live_node if _live_id != "" else null
+
+
 ## True while a full-game review query is still being answered.
 func is_reviewing() -> bool:
 	return _review_id != ""

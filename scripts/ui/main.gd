@@ -110,6 +110,9 @@ func _fit_window_to_screen(window: Window) -> void:
 
 func _on_position_changed(_node: GameNode) -> void:
 	_refresh()
+	# Whatever moved the position (the human's click, a pass, an undo), the
+	# opponent gets asked for a reply when it is now its turn.
+	_offer_ai_move()
 
 
 func _on_game_state_changed() -> void:
@@ -658,6 +661,8 @@ func _clear_analysis_readout() -> void:
 func _offer_ai_move() -> void:
 	if ai_side == 0 or ai == null or analysis == null or flow.over:
 		return
+	if mode != "play":
+		return
 	if engine == null or not engine.running:
 		return
 	if flow.turn() != ai_side:
@@ -675,6 +680,12 @@ func _offer_ai_move() -> void:
 func _play_ai_move(node: GameNode) -> void:
 	ai_pending_node = null
 	ai_request_id = ""
+	# The answer is for the position it was asked about. If the human undid
+	# or the game moved on meanwhile, playing it here would put a stale move
+	# on a different board, so drop it and ask again for the current one.
+	if node != flow.current() or flow.turn() != ai_side or flow.over or mode != "play":
+		_offer_ai_move()
+		return
 	var previous_was_pass: bool = not node.is_root() and node.is_pass()
 	var choice: Dictionary = ai.choose_move(node.analysis, flow.tree.size, ai_side,
 		flow.move_number(), previous_was_pass)
@@ -704,6 +715,8 @@ func _on_board_clicked(point: Vector2i) -> void:
 	if mode == "review":
 		_select_variation(point)
 		return
+	if _is_ai_turn():
+		return  # the opponent's stone, not the human's
 	var ok: bool = flow.play(point.x, point.y)
 	if not ok:
 		push_warning("Illegal move at %s: %s" % [Coords.to_gtp(point.x, point.y, flow.tree.size), flow.last_error])
@@ -755,13 +768,21 @@ func _on_navigate(direction: String) -> void:
 
 
 func _on_pass() -> void:
-	if mode == "play":
+	if mode == "play" and not _is_ai_turn():
 		flow.pass_move()
 	_refresh()
 
 
+## True during a game against the engine while it is the engine's move: the
+## human may not place (or pass with) the opponent's colour.
+func _is_ai_turn() -> bool:
+	return mode == "play" and ai_side != 0 and not flow.over and flow.turn() == ai_side
+
+
 func _on_undo() -> void:
-	flow.undo_pair()
+	# Against the engine, undo returns to the human's previous turn: while the
+	# engine is still thinking that is just the human's own last move.
+	flow.undo_pair(1 if _is_ai_turn() else 2)
 	_refresh()
 
 

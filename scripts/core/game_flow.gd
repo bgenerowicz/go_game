@@ -168,11 +168,13 @@ func resign(loser_color: int) -> void:
 
 ## Takes back a full move pair (two plies), or one ply when only one was played,
 ## and removes those nodes so a replayed game does not accumulate dead branches.
-func undo_pair() -> int:
+## plies overrides the count, e.g. 1 to take back only the human's move while
+## the engine is still thinking about its reply.
+func undo_pair(plies: int = 2) -> int:
 	if tree.current == tree.root:
 		return 0
 	var undone: int = 0
-	while undone < 2 and tree.current != tree.root:
+	while undone < plies and tree.current != tree.root:
 		var victim: GameNode = tree.current
 		var parent: GameNode = victim.parent
 		if parent == null:

@@ -30,6 +30,25 @@ var _text_color: Color = Color(0.2, 0.2, 0.2)
 var _background: Color = Color(0.98, 0.96, 0.92)
 
 
+## Follows the system light/dark appearance.
+func set_dark(dark: bool) -> void:
+	if dark:
+		_background = Color(0.155, 0.16, 0.175)
+		_grid_color = Color(0.34, 0.35, 0.38)
+		_text_color = Color(0.72, 0.73, 0.76)
+		_cursor_color = Color(0.9, 0.9, 0.92)
+		_line_color = Color(0.4, 0.66, 1.0)
+		_score_color = Color(0.95, 0.62, 0.3)
+	else:
+		_background = Color(0.98, 0.96, 0.92)
+		_grid_color = Color(0.55, 0.5, 0.42)
+		_text_color = Color(0.2, 0.2, 0.2)
+		_cursor_color = Color(0.15, 0.15, 0.15)
+		_line_color = Color(0.15, 0.45, 0.85)
+		_score_color = Color(0.75, 0.45, 0.15)
+	queue_redraw()
+
+
 func show_position(p_tree: GameTree, p_review: Review, p_turn: int) -> void:
 	tree = p_tree
 	review = p_review
@@ -101,7 +120,7 @@ func _draw() -> void:
 			radius = 4.5
 		elif kind == Review.KIND_BLUNDER:
 			radius = 6.0
-		draw_circle(point, radius + 1.0, Color(1, 1, 1, 0.9))
+		draw_circle(point, radius + 1.0, _background)
 		draw_circle(point, radius, _mistake_color(kind))
 
 	# Cursor at the current move.

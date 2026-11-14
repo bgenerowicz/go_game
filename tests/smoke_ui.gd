@@ -146,7 +146,7 @@ func _run() -> void:
 	_check(tree.size == 9, "messy.sgf loads as 9x9")
 	_check(tree.node_count() > 20, "the whole variation tree loaded")
 	# PLAN 6.2 info panel: player names come from the SGF PB/PW properties.
-	var players: Node = root.get_node_or_null("Column/Body/SideScroller/Side/Players")
+	var players: Node = root.get_node_or_null("Column/Body/SideScroller/Side/GameCard/Body/Players")
 	_check(players != null, "the info panel has a player names label")
 	if players != null:
 		_check(str(players.text).contains("Black"), "player names mention Black")

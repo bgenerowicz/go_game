@@ -38,6 +38,8 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
+	# A window hidden behind others may stop redrawing; draw this frame now.
+	RenderingServer.force_draw(false)
 	var image: Image = get_root().get_texture().get_image()
 	if image == null or image.get_width() == 0:
 		print("FAIL no viewport image")
@@ -58,8 +60,11 @@ func _run() -> void:
 	# Machine-readable pixel positions so an outside script can assert on the
 	# exact pixels the control drew, instead of guessing the board geometry.
 	var view: Control = root.board_view
-	var view_origin: Vector2 = view.get_global_transform() * view.grid_origin()
-	var cell: float = view.cell_size()
+	# The window stretches the UI (canvas_items mode, HiDPI), so layout units are
+	# mapped through the window's final transform into screenshot pixels.
+	var to_pixels: Transform2D = get_root().get_final_transform()
+	var view_origin: Vector2 = to_pixels * (view.get_global_transform() * view.grid_origin())
+	var cell: float = view.cell_size() * to_pixels.get_scale().x
 	print("board origin: %.1f,%.1f cell: %.2f" % [view_origin.x, view_origin.y, cell])
 	for entry in expected:
 		var parts: PackedStringArray = entry.split(" ")

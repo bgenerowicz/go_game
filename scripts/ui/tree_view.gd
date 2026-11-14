@@ -26,6 +26,23 @@ var _text_color: Color = Color(0.2, 0.2, 0.2)
 var _light_text: Color = Color(0.9, 0.9, 0.9)
 var _cursor_color: Color = Color(0.85, 0.45, 0.1)
 var _comment_color: Color = Color(0.2, 0.45, 0.85)
+var _pass_color: Color = Color(0.75, 0.72, 0.66)
+
+
+## Follows the system light/dark appearance. The stones keep their own colours;
+## the background, connecting lines and pass markers switch.
+func set_dark(dark: bool) -> void:
+	if dark:
+		_background = Color(0.155, 0.16, 0.175)
+		_line_color = Color(0.5, 0.5, 0.53)
+		_pass_color = Color(0.42, 0.42, 0.45)
+		_comment_color = Color(0.4, 0.65, 1.0)
+	else:
+		_background = Color(0.98, 0.96, 0.92)
+		_line_color = Color(0.45, 0.4, 0.32)
+		_pass_color = Color(0.75, 0.72, 0.66)
+		_comment_color = Color(0.2, 0.45, 0.85)
+	queue_redraw()
 
 
 func show_position(p_tree: GameTree, p_node: GameNode) -> void:
@@ -150,7 +167,7 @@ func _draw_node(entry: Dictionary, font: Font, font_size: int) -> void:
 			Vector2(NODE_R * 1.4, NODE_R * 1.4)), _line_color, true)
 		return
 	if node.is_pass():
-		draw_circle(center, NODE_R, Color(0.75, 0.72, 0.66))
+		draw_circle(center, NODE_R, _pass_color)
 		_label(font, font_size, center, "P", _text_color)
 		return
 	var is_black: bool = node.move_color() == Board.Stone.BLACK

@@ -13,6 +13,16 @@ var board_view: BoardView
 var status_label: Label
 var captures_label: Label
 var result_label: Label
+## The move number and side to play, shown large in the Game card.
+var turn_label: Label
+## The engine's read-out for the shown position (best move, win rate).
+var analysis_label: Label
+## Small second line under the turn: review-mode help.
+var mode_label: Label
+## Side-panel parts that change with the mode (see _update_panel_mode).
+var _actions: GridContainer
+var _review_card: Control
+var _mistake_scroll: ScrollContainer
 var engine_label: Label
 var restart_button: Button
 var graph_view: GraphView
@@ -69,6 +79,8 @@ func _ready() -> void:
 		if settings.has_signal("settings_changed"):
 			settings.settings_changed.connect(_apply_settings)
 	_build_ui()
+	_apply_appearance()
+	DisplayServer.set_system_theme_change_callback(_apply_appearance)
 	_apply_settings()
 	# Views follow the flow itself, so anything that moves the position (a click,
 	# a key, the AI, a test driving GameFlow directly) repaints the whole UI.
@@ -229,6 +241,10 @@ func _build_ui() -> void:
 	tree_scroller = strip
 	tree_view = TreeView.new()
 	tree_view.name = "Tree"
+	# Fill the whole strip, so its background spans the window rather than
+	# stopping where the last move is drawn.
+	tree_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tree_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tree_view.node_clicked.connect(_on_tree_clicked)
 	strip.add_child(tree_view)
 
@@ -299,110 +315,153 @@ func _build_side_panel() -> VBoxContainer:
 	panel.name = "Side"
 	panel.custom_minimum_size = Vector2(SIDE_WIDTH, 0)
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_theme_constant_override("separation", 6)
+	panel.add_theme_constant_override("separation", 10)
 
-	status_label = Label.new()
-	status_label.name = "Status"
-	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	panel.add_child(status_label)
-	captures_label = Label.new()
-	captures_label.name = "Captures"
-	captures_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	panel.add_child(captures_label)
-	result_label = Label.new()
-	result_label.name = "Result"
-	result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	panel.add_child(result_label)
-	engine_label = Label.new()
-	engine_label.name = "EngineStatus"
-	engine_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	engine_label.text = "Engine: not started"
-	panel.add_child(engine_label)
-
-	# Game actions as a compact grid, so they do not push the review content
-	# off the bottom of the panel.
+	# --- Game: what is being played, by whom, and whose move it is ----------
+	var game: VBoxContainer = _section(panel, "GameCard", "Game")
+	status_label = _text_label("Status", FONT_SMALL, COLOR_MUTED)
+	game.add_child(status_label)
+	turn_label = _text_label("Turn", FONT_LARGE, COLOR_TEXT)
+	game.add_child(turn_label)
+	mode_label = _text_label("Mode", FONT_SMALL, COLOR_ACCENT)
+	mode_label.text = "Review mode: click the board to try variations"
+	mode_label.visible = false
+	game.add_child(mode_label)
+	players_label = _text_label("Players", FONT_BODY, COLOR_TEXT)
+	game.add_child(players_label)
+	captures_label = _text_label("Captures", FONT_SMALL, COLOR_MUTED)
+	game.add_child(captures_label)
+	result_label = _text_label("Result", FONT_BODY, COLOR_ACCENT)
+	game.add_child(result_label)
 	var actions: GridContainer = GridContainer.new()
+	_actions = actions
 	actions.name = "Actions"
-	actions.columns = 3
-	actions.add_theme_constant_override("h_separation", 4)
-	actions.add_theme_constant_override("v_separation", 4)
+	actions.columns = 2
+	actions.add_theme_constant_override("h_separation", 6)
+	actions.add_theme_constant_override("v_separation", 6)
 	for entry in [["Pass", _on_pass], ["Undo", _on_undo], ["Resign", _on_resign],
-			["New game", _on_new_game], ["Review game", _run_review]]:
+			["New game", _on_new_game]]:
 		var button: Button = _button(String(entry[0]), entry[1] as Callable)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		actions.add_child(button)
-	# PLAN 5.2: a dead engine must be restartable from the UI.
-	restart_button = _button("Restart engine", _restart_engine)
-	restart_button.name = "RestartEngine"
-	restart_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actions.add_child(restart_button)
-	panel.add_child(actions)
+	game.add_child(actions)
 
-	review_label = Label.new()
-	review_label.name = "ReviewStatus"
-	review_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	panel.add_child(review_label)
-
-	# PLAN 6.2 info panel: win-rate bar, score lead, visits, player names.
+	# --- Engine view of the shown position ----------------------------------
+	var view: VBoxContainer = _section(panel, "AnalysisCard", "Engine view")
 	winrate_bar = WinRateBar.new()
 	winrate_bar.name = "WinRateBar"
-	winrate_bar.custom_minimum_size = Vector2(SIDE_WIDTH, 34)
 	winrate_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.add_child(winrate_bar)
-
-	players_label = Label.new()
-	players_label.name = "Players"
-	players_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	panel.add_child(players_label)
-
+	view.add_child(winrate_bar)
+	analysis_label = _text_label("Analysis", FONT_SMALL, COLOR_TEXT)
+	view.add_child(analysis_label)
 	# PLAN 6.2 ownership overlay: "Show 'Black +x.x' score estimate".
-	ownership_label = Label.new()
-	ownership_label.name = "OwnershipEstimate"
-	ownership_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	panel.add_child(ownership_label)
+	ownership_label = _text_label("OwnershipEstimate", FONT_SMALL, COLOR_MUTED)
+	view.add_child(ownership_label)
 
+	# --- Review: progress, then the clickable mistake list ------------------
+	var review_box: VBoxContainer = _section(panel, "ReviewCard", "Review")
+	review_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_review_card = review_box.get_parent()
+	var review_row: HBoxContainer = HBoxContainer.new()
+	review_row.add_theme_constant_override("separation", 8)
+	review_label = _text_label("ReviewStatus", FONT_SMALL, COLOR_MUTED)
+	review_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	review_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	review_row.add_child(review_label)
+	var review_button: Button = _button("Review game", _run_review)
+	review_row.add_child(review_button)
+	review_box.add_child(review_row)
 	# PLAN 6.2: "Side panel lists the top mistakes per player; clicking one jumps
 	# to it." Buttons rather than a text block so each entry is clickable.
-	mistake_title = Label.new()
-	mistake_title.name = "MistakeTitle"
-	mistake_title.text = "Top mistakes (click to jump)"
-	panel.add_child(mistake_title)
+	mistake_title = _text_label("MistakeTitle", FONT_SMALL, COLOR_MUTED)
+	mistake_title.text = "Biggest mistakes (click to jump)"
+	review_box.add_child(mistake_title)
 	var mistake_scroll: ScrollContainer = ScrollContainer.new()
+	_mistake_scroll = mistake_scroll
 	mistake_scroll.name = "MistakeScroll"
-	mistake_scroll.custom_minimum_size = Vector2(SIDE_WIDTH, 220)
+	mistake_scroll.custom_minimum_size = Vector2(0, 180)
 	mistake_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	mistake_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	mistake_box = VBoxContainer.new()
 	mistake_box.name = "MistakeList"
 	mistake_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mistake_box.add_theme_constant_override("separation", 2)
 	mistake_scroll.add_child(mistake_box)
-	panel.add_child(mistake_scroll)
-	# Player names and the ownership estimate are secondary: below the mistake
-	# list, so the list is what the eye lands on after the win-rate bar.
-	panel.move_child(players_label, -1)
-	panel.move_child(ownership_label, -1)
+	review_box.add_child(mistake_scroll)
 
-	# Comment box: edits the SGF C property of the node being shown
-	# (PLAN 6.2 info panel).
-	var comment_title: Label = Label.new()
-	comment_title.name = "CommentTitle"
-	comment_title.text = "Comment (saved to the SGF):"
-	panel.add_child(comment_title)
+	# --- Comment on the shown position (SGF C property, PLAN 6.2) -----------
+	var notes: VBoxContainer = _section(panel, "CommentCard", "Comment")
 	comment_edit = TextEdit.new()
 	comment_edit.name = "Comment"
-	comment_edit.custom_minimum_size = Vector2(SIDE_WIDTH, 70)
+	comment_edit.custom_minimum_size = Vector2(0, 64)
 	comment_edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
-	comment_edit.placeholder_text = "No comment on this position"
+	comment_edit.placeholder_text = "Notes on this position (saved in the SGF)"
 	comment_edit.text_changed.connect(_on_comment_changed)
-	panel.add_child(comment_edit)
+	notes.add_child(comment_edit)
 
-	var hint: Label = Label.new()
-	hint.name = "Keys"
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.text = "Keys: Left/Right one move, Up/Down variation, Home/End, " \
-		+ "P pass, U undo, Ctrl+O open, Ctrl+S save."
+	# --- Footer: engine status and keyboard help, kept quiet ---------------
+	var footer: HBoxContainer = HBoxContainer.new()
+	footer.name = "Footer"
+	footer.add_theme_constant_override("separation", 8)
+	engine_label = _text_label("EngineStatus", FONT_SMALL, COLOR_MUTED)
+	engine_label.text = "Engine: not started"
+	engine_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	engine_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	footer.add_child(engine_label)
+	# PLAN 5.2: a dead engine must be restartable from the UI.
+	restart_button = _button("Restart engine", _restart_engine)
+	restart_button.name = "RestartEngine"
+	restart_button.add_theme_font_size_override("font_size", FONT_SMALL)
+	footer.add_child(restart_button)
+	panel.add_child(footer)
+	var hint: Label = _text_label("Keys", FONT_SMALL, COLOR_MUTED)
+	hint.text = "← → move   ↑ ↓ variation   Home/End   P pass   U undo   " \
+		+ "Ctrl+O open   Ctrl+S save"
 	panel.add_child(hint)
 	return panel
+
+
+## Side panel styling ------------------------------------------------------------
+
+const FONT_SMALL: int = 13
+const FONT_BODY: int = 15
+const FONT_LARGE: int = 18
+const COLOR_TEXT: Color = Color(0.9, 0.9, 0.9)
+const COLOR_MUTED: Color = Color(0.62, 0.63, 0.66)
+const COLOR_ACCENT: Color = Color(0.98, 0.78, 0.45)
+const COLOR_CARD: Color = Color(0.2, 0.205, 0.22)
+
+
+## A titled card in the side panel; returns the box its contents go in.
+func _section(parent: Control, node_name: String, title: String) -> VBoxContainer:
+	var card: PanelContainer = PanelContainer.new()
+	card.name = node_name
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = COLOR_CARD
+	style.set_corner_radius_all(6)
+	style.set_content_margin_all(10)
+	card.add_theme_stylebox_override("panel", style)
+	parent.add_child(card)
+	var box: VBoxContainer = VBoxContainer.new()
+	box.name = "Body"
+	box.add_theme_constant_override("separation", 6)
+	card.add_child(box)
+	var heading: Label = Label.new()
+	heading.name = "Title"
+	heading.text = title.to_upper()
+	heading.add_theme_font_size_override("font_size", 11)
+	heading.add_theme_color_override("font_color", COLOR_MUTED)
+	box.add_child(heading)
+	return box
+
+
+func _text_label(node_name: String, font_size: int, color: Color) -> Label:
+	var label: Label = Label.new()
+	label.name = node_name
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	return label
 
 
 func _button(text: String, handler: Callable) -> Button:
@@ -507,7 +566,7 @@ func _restart_engine() -> void:
 ## line. Results land in node.analysis, which the graph and mistake list read.
 func _run_review() -> void:
 	if analysis == null or engine == null or not engine.running:
-		_set_review_status("review needs a running engine")
+		_set_review_status("Review needs the engine running")
 		return
 	if analysis.is_reviewing():
 		return
@@ -521,14 +580,14 @@ func _run_review() -> void:
 	# higher priority would only slow it down.
 	analysis.cancel_live()
 	live_request_id = ""
-	_set_review_status("reviewing %d turns at %d visits each"
+	_set_review_status("Starting: %d positions at %d visits each"
 		% [flow.tree.main_line_length(), visits])
 	analysis.request_review(flow.tree, visits)
 	_refresh()
 
 
 func _on_review_progress(done: int, total: int) -> void:
-	_set_review_status("Reviewing: %d of %d positions" % [done, total])
+	_set_review_status("Reviewing… %d of %d positions" % [done, total])
 	if graph_view != null:
 		graph_view.refresh_data()
 	# The mistake list fills in as the review goes, not only at the end; it is
@@ -545,7 +604,7 @@ func _on_review_finished() -> void:
 
 
 func _on_review_failed(message: String) -> void:
-	_set_review_status("review failed: " + message)
+	_set_review_status("Review failed: " + message)
 
 
 func _set_review_status(text: String) -> void:
@@ -563,46 +622,61 @@ func _show_mistakes(update_status: bool = true) -> void:
 		return
 	for child in mistake_box.get_children():
 		child.queue_free()
+	if mistake_title != null:
+		mistake_title.visible = review != null
 	if review == null:
 		if review_label != null:
-			review_label.text = "Review: not started (Review game, or Review menu)"
+			review_label.text = "Not reviewed yet"
 		return
 	var found: Array = review.mistakes()
 	if review_label != null and update_status:
-		review_label.text = "Review: %d turn(s) analysed, %d mistake(s)" \
+		review_label.text = "%d positions analysed, %d mistake(s)" \
 			% [review.analysed_turns(), found.size()]
 	if found.is_empty():
-		var none: Label = Label.new()
-		none.name = "NoMistakes"
+		var none: Label = _text_label("NoMistakes", FONT_SMALL, COLOR_MUTED)
 		none.text = "No mistakes above the threshold."
-		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		mistake_box.add_child(none)
 		return
 	for colour in [Board.Stone.BLACK, Board.Stone.WHITE]:
-		var header: Label = Label.new()
-		header.name = "Mistakes%s" % ("Black" if colour == Board.Stone.BLACK else "White")
-		header.text = "Black" if colour == Board.Stone.BLACK else "White"
+		var entries: Array = review.mistakes_for(colour, MISTAKES_PER_PLAYER)
+		if entries.is_empty():
+			continue
+		var header: Label = _text_label(
+			"Mistakes%s" % ("Black" if colour == Board.Stone.BLACK else "White"),
+			FONT_SMALL, COLOR_MUTED)
+		header.text = "●  Black" if colour == Board.Stone.BLACK else "○  White"
 		mistake_box.add_child(header)
-		for entry in review.mistakes_for(colour, MISTAKES_PER_PLAYER):
+		for entry in entries:
 			mistake_box.add_child(_mistake_button(entry as Dictionary))
 
 
-## One clickable row: "Q4 blunder -12.5 (best Q3)". Clicking jumps to the move.
+## Colour per severity, so the worst moves stand out in the list.
+const KIND_COLORS: Dictionary = {
+	"blunder": Color(0.95, 0.42, 0.38),
+	"mistake": Color(0.98, 0.66, 0.35),
+	"inaccuracy": Color(0.92, 0.84, 0.45),
+}
+
+
+## One clickable row: "Move 35  A6   mistake  -7.3   best E2". Clicking jumps
+## to the move.
 func _mistake_button(info: Dictionary) -> Button:
 	var node: GameNode = info["node"] as GameNode
 	var colour: String = "B" if int(info["color"]) == Board.Stone.BLACK else "W"
 	var best: String = _best_move_before(node)
+	var kind: String = String(info["kind"])
 	var button: Button = Button.new()
 	button.name = "Mistake_%s_%s" % [colour, String(info["move"])]
-	button.text = "%s %s  %s  %+.1f (best %s)" % [
-		colour,
-		String(info["move"]),
-		String(info["kind"]),
-		-float(info["loss"]),
-		best,
-	]
+	var number: int = flow.tree.move_count_to(node) if node != null else 0
+	button.text = "Move %d   %s   %s %+.1f   (best %s)" % [
+		number, String(info["move"]), kind, -float(info["loss"]), best]
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.focus_mode = Control.FOCUS_NONE
+	button.flat = true
+	button.add_theme_font_size_override("font_size", FONT_SMALL)
+	var tint: Color = KIND_COLORS.get(kind, COLOR_TEXT)
+	button.add_theme_color_override("font_color", tint)
+	button.add_theme_color_override("font_hover_color", tint.lightened(0.3))
 	if node != null:
 		button.pressed.connect(func() -> void:
 			_goto(node))
@@ -691,16 +765,17 @@ func _show_analysis(node: GameNode) -> void:
 	var visits: int = int(result.get("visits", 0))
 	var to_move_rate: float = black_rate * 100.0 \
 		if turn == Board.Stone.BLACK else (1.0 - black_rate) * 100.0
-	var line: String = "Analysis (%d visits): best %s, %s to play %.1f%%, score %+.1f" \
-		% [visits, String(top.get("move", "?")),
-			"Black" if turn == Board.Stone.BLACK else "White", to_move_rate, score_lead]
-	if node.comment != "":
-		line += "\nComment: " + node.comment
-	result_label.text = line
+	var best_move: String = String(top.get("move", "?"))
+	if best_move.to_lower() == "pass":
+		best_move = "pass"
+	analysis_label.text = "Best move for %s: %s  (%.0f%% to win)" \
+		% ["Black" if turn == Board.Stone.BLACK else "White", best_move, to_move_rate]
 	if winrate_bar != null:
+		winrate_bar.visible = true
 		winrate_bar.set_values(black_rate, score_lead, visits)
 	if ownership_label != null:
-		ownership_label.text = Review.ownership_text(result.get("ownership", []) as Array)
+		var estimate: String = Review.ownership_text(result.get("ownership", []) as Array)
+		ownership_label.text = "Territory estimate: " + estimate if estimate != "" else ""
 
 
 ## Clears the analysis read-out, which is what the user sees when hints are off
@@ -708,6 +783,10 @@ func _show_analysis(node: GameNode) -> void:
 func _clear_analysis_readout() -> void:
 	if winrate_bar != null:
 		winrate_bar.clear_values()
+		winrate_bar.visible = _hints_visible()
+	if analysis_label != null:
+		analysis_label.text = "" if _hints_visible() \
+			else "Hints are off during play (View › Show hints during a game)"
 	if ownership_label != null:
 		ownership_label.text = ""
 
@@ -827,6 +906,32 @@ func _on_pass() -> void:
 	if mode == "play" and not _is_ai_turn():
 		flow.pass_move()
 	_refresh()
+
+
+## Shows what matters for the current mode. In review the game buttons give way
+## to the mistake list; before any review the Review card stays compact
+## instead of stretching into an empty box.
+func _update_panel_mode() -> void:
+	if mode_label != null:
+		mode_label.visible = mode == "review"
+	if _actions != null:
+		_actions.visible = mode == "play"
+	var reviewed: bool = review != null
+	if _review_card != null:
+		_review_card.size_flags_vertical = Control.SIZE_EXPAND_FILL if reviewed \
+			else Control.SIZE_SHRINK_BEGIN
+	if _mistake_scroll != null:
+		_mistake_scroll.visible = reviewed
+
+
+## The move strip and the review graph follow the system light/dark setting
+## (the side panel is dark either way). Re-applied when the setting changes.
+func _apply_appearance() -> void:
+	var dark: bool = DisplayServer.is_dark_mode_supported() and DisplayServer.is_dark_mode()
+	if graph_view != null:
+		graph_view.set_dark(dark)
+	if tree_view != null:
+		tree_view.set_dark(dark)
 
 
 ## Switches between play and review mode and keeps the View menu tick in step.
@@ -1050,7 +1155,7 @@ func _on_review_menu(id: int) -> void:
 		31:
 			if analysis != null:
 				analysis.cancel_review()
-			_set_review_status("review cancelled")
+			_set_review_status("Review cancelled")
 		32:
 			_open_settings()
 
@@ -1352,20 +1457,24 @@ func _refresh() -> void:
 		board_view.set_analysis({})
 		_clear_analysis_readout()
 	var turn: int = flow.tree.turn_at(node)
-	var lines: Array[String] = []
-	lines.append("Board %d x %d, komi %s, %s rules" % [flow.tree.size, flow.tree.size, str(flow.tree.komi), flow.tree.rules.capitalize()])
+	status_label.text = "%d x %d board  ·  komi %s  ·  %s rules" % [flow.tree.size,
+		flow.tree.size, str(flow.tree.komi), flow.tree.rules.capitalize()]
 	# move_number() counts moves already played; the label shows the number of
 	# the move about to be played, which is what a player expects to see.
-	lines.append("Move %d, %s to play" % [flow.move_number() + 1,
-		"Black" if turn == Board.Stone.BLACK else "White"])
-	if mode == "review":
-		lines.append("Review mode (click the board to try variations)")
-	if flow.over:
-		lines.append("Game over: " + flow.result_text)
-	status_label.text = "\n".join(lines)
+	if flow.over and node == flow.tree.main_line().back():
+		turn_label.text = "Game over after %d moves" % flow.move_number()
+	else:
+		turn_label.text = "Move %d  ·  %s to play" % [flow.move_number() + 1,
+			"Black" if turn == Board.Stone.BLACK else "White"]
+	_update_panel_mode()
+	# The engine's read-out follows the shown position (or says why it is off).
+	if _hints_visible():
+		_show_analysis(node)
+	else:
+		_clear_analysis_readout()
 
 	var board: Board = flow.tree.board_at(node)
-	captures_label.text = "Captured by Black: %d    Captured by White: %d" \
+	captures_label.text = "Captured by Black: %d   ·   by White: %d" \
 		% [int(board.captures[Board.Stone.BLACK]), int(board.captures[Board.Stone.WHITE])]
 	# PLAN 6.2 info panel: player names. SGF PB/PW are optional, so fall back to
 	# the colour, and mark the side the engine plays when there is an opponent.
@@ -1380,11 +1489,9 @@ func _refresh() -> void:
 			black_name += " (engine)"
 		elif ai_side == Board.Stone.WHITE:
 			white_name += " (engine)"
-		players_label.text = "Black: %s\nWhite: %s" % [black_name, white_name]
+		players_label.text = "●  Black: %s\n○  White: %s" % [black_name, white_name]
 	result_label.text = "Result: " + flow.result_text if flow.result_text != "" else ""
-	if node.comment != "":
-		result_label.text = ("Result: " + flow.result_text + "\n" if flow.result_text != "" else "") \
-			+ "Comment: " + node.comment
+	result_label.visible = result_label.text != ""
 
 	# The move tree and the comment box follow the shown position.
 	if tree_view != null:

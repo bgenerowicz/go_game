@@ -45,6 +45,8 @@ var star_color: Color = Color(0.12, 0.09, 0.05)
 var coordinate_color: Color = Color(0.2, 0.16, 0.1)
 
 const EDGE_FRACTION: float = 0.75  # half-cell border, as a fraction of a cell
+## Distance from the outer grid line to the centre of a coordinate label.
+const LABEL_GAP: float = 0.95
 
 
 func _init() -> void:
@@ -410,25 +412,22 @@ func _draw_coordinates(n: int, cell: float) -> void:
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
-	var font_size: int = int(max(9.0, cell * 0.40))
+	# Labels are centred LABEL_GAP cells outside the outer lines. A stone on an
+	# edge line reaches 0.47 cells out and a label is about 0.2 cells tall, so
+	# 0.95 keeps them clear of each other inside the 1.25-cell border.
+	var font_size: float = max(9.0, cell * 0.36)
 	var origin: Vector2 = grid_origin()
-	var bottom: float = origin.y + cell * float(n - 1)
+	var far: float = cell * float(n - 1)
 	for i in n:
-		var offset_x: float = origin.x + cell * float(i)
+		var x: float = origin.x + cell * float(i)
 		var letter: String = Coords.LETTERS[i]
-		var tw: float = font.get_string_size(letter, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-		draw_string(font, Vector2(offset_x - tw * 0.5, origin.y - cell * 0.32), letter,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, coordinate_color)
-		draw_string(font, Vector2(offset_x - tw * 0.5, bottom + cell * 0.78), letter,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, coordinate_color)
+		_draw_centered(letter, Vector2(x, origin.y - cell * LABEL_GAP), font_size, coordinate_color)
+		_draw_centered(letter, Vector2(x, origin.y + far + cell * LABEL_GAP), font_size, coordinate_color)
 	for i in n:
 		var number: String = str(n - i)
-		var offset_y: float = origin.y + cell * float(i)
-		var tw2: float = font.get_string_size(number, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-		draw_string(font, Vector2(origin.x - cell * 0.8 - tw2 * 0.5, offset_y + font_size * 0.35),
-			number, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, coordinate_color)
-		draw_string(font, Vector2(origin.x + cell * float(n - 1) + cell * 0.3, offset_y + font_size * 0.35),
-			number, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, coordinate_color)
+		var y: float = origin.y + cell * float(i)
+		_draw_centered(number, Vector2(origin.x - cell * LABEL_GAP, y), font_size, coordinate_color)
+		_draw_centered(number, Vector2(origin.x + far + cell * LABEL_GAP, y), font_size, coordinate_color)
 
 
 func _draw_centered(text: String, center: Vector2, font_size: float, color: Color) -> void:

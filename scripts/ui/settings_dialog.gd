@@ -39,6 +39,22 @@ const PROFILES: Array[String] = [
 ]
 
 
+## Width the long status texts wrap at.
+const WRAP_WIDTH: float = 680.0
+
+var _scroll: ScrollContainer = null
+
+
+## Opens the dialog at a height that fits the window; the settings scroll
+## inside it, so Save stays reachable on a small screen.
+func open_fitted(window_height: float) -> void:
+	if _scroll != null:
+		# Room for the title bar and the button row below the scroll area.
+		_scroll.custom_minimum_size.y = clampf(window_height * 0.85 - 110.0, 240.0, 620.0)
+	reset_size()
+	popup_centered()
+
+
 func _ready() -> void:
 	title = "Settings"
 	ok_button_text = "Save"
@@ -52,10 +68,19 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	# The settings are taller than a laptop window, so they scroll inside the
+	# dialog; the Save/OK buttons below stay on screen.
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(WRAP_WIDTH + 30.0, 560)
+	_scroll = scroll
+	add_child(scroll)
 	var column: VBoxContainer = VBoxContainer.new()
 	column.name = "Column"
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 10)
-	add_child(column)
+	scroll.add_child(column)
 
 	column.add_child(_section("Engine"))
 	var engine_grid: GridContainer = GridContainer.new()
@@ -70,6 +95,9 @@ func _build() -> void:
 	detected_label = Label.new()
 	detected_label.name = "Detected"
 	detected_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Wrapping labels need a width up front, or the first layout wraps them one
+	# word per line and makes the dialog thousands of pixels tall.
+	detected_label.custom_minimum_size = Vector2(WRAP_WIDTH, 0)
 	column.add_child(detected_label)
 
 	var start_button: Button = Button.new()
@@ -81,6 +109,7 @@ func _build() -> void:
 	status_label = Label.new()
 	status_label.name = "EngineStatus"
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status_label.custom_minimum_size = Vector2(WRAP_WIDTH, 0)
 	column.add_child(status_label)
 
 	column.add_child(_section("Analysis"))

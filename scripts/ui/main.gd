@@ -1260,7 +1260,7 @@ func _open_settings() -> void:
 		dialog.set_script(script)
 		add_child(dialog)
 		settings_dialog = dialog
-	settings_dialog.popup_centered(Vector2i(760, 620))
+	settings_dialog.open_fitted(get_viewport().get_visible_rect().size.y)
 
 
 ## Keyboard navigation ------------------------------------------------------------

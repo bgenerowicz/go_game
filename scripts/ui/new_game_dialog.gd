@@ -13,6 +13,9 @@ const RULES: Array[String] = [
 
 const SIZES: Array[int] = [9, 13, 19]
 
+## Width the explanatory note wraps at (see _build).
+const NOTE_WIDTH: float = 460.0
+
 ## PLAN 6.1 "style (modern/pre-AI)": the two humanSLProfile families, without the
 ## rank suffix, which the rank box supplies.
 const STYLES: Array[String] = ["rank", "preaz"]
@@ -125,6 +128,11 @@ func _build() -> void:
 	note_label = Label.new()
 	note_label.name = "Note"
 	note_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# A wrapping label with no width yet wraps one word per line, so on the very
+	# first popup its minimum height (and the dialog's) came out about 2000 px
+	# tall and pushed "Start game" off the screen. A fixed width makes the first
+	# layout the same as every later one.
+	note_label.custom_minimum_size = Vector2(NOTE_WIDTH, 0)
 	column.add_child(note_label)
 
 
@@ -159,7 +167,10 @@ func open_with(p_size: int, p_komi: float, p_rules: String, p_handicap: int,
 	var colour_index: int = COLOURS.find(p_human_colour)
 	colour_box.selected = colour_index if colour_index >= 0 else 1
 	_update_note()
-	popup_centered(Vector2i(520, 420))
+	# Fit the dialog to its content each time: the note changes length with the
+	# options, and a size left over from a longer note would leave a gap.
+	reset_size()
+	popup_centered(Vector2i(520, 0))
 
 
 func _on_start() -> void:

@@ -59,6 +59,15 @@ func _test_query_shape(svc) -> void:
 	# The whole query must fit on one line for the line protocol.
 	var line: String = JSON.stringify(q)
 	a.check(not line.contains("\n"), "stringified query is a single line")
+	# initialPlayer is who moves at turn 0, not who is to move now: a review
+	# query about a game that ends with White to play must still start with
+	# Black, or the empty board is analysed with White to move.
+	t.play_move(Board.Stone.BLACK, 4, 4)
+	var at_white: Dictionary = svc._build_query(t, t.current, 100, {})
+	a.check_eq(str(at_white["initialPlayer"]), "B", "turn 0 is Black's even with White to play now")
+	var empty: GameTree = GameTree.new(9, 6.5)
+	a.check_eq(str(svc._build_query(empty, empty.current, 100, {})["initialPlayer"]), "B",
+		"an empty board starts with Black")
 	# humanSLProfile belongs inside overrideSettings (PLAN 4.3).
 	var human: Dictionary = svc._build_query(t, t.current, 40, {"human_profile": "rank_10k"})
 	a.check_eq(str(human["overrideSettings"]["humanSLProfile"]), "rank_10k", "profile in overrideSettings")

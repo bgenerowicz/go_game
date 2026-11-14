@@ -192,10 +192,19 @@ func _build_query(tree: GameTree, node: GameNode, visits: int, opts: Dictionary)
 	var setup: Array = tree.setup_stones_with_colors(node)
 	if not setup.is_empty():
 		query["initialStones"] = setup
-	# With setup stones and no move history KataGo cannot infer who plays first.
-	query["initialPlayer"] = "B" if tree.turn_at(node) == Board.Stone.BLACK else "W"
 	# Setup stones are replayed as placements: the engine never reads the SGF.
-	query["moves"] = tree.moves_with_colors(node)
+	var moves: Array = tree.moves_with_colors(node)
+	query["moves"] = moves
+	# initialPlayer is who moves at turn 0, the position before any move: the
+	# colour of the first move, or (with no moves yet) whoever is to play now.
+	# It used to be the player to move at `node`, which for a full-game review
+	# is the end of the game: when White had the last turn, turn 0 was analysed
+	# as an empty board with White to play (komi plus the first move), and the
+	# graph started at about "White 100%".
+	if not moves.is_empty():
+		query["initialPlayer"] = String((moves[0] as Array)[0])
+	else:
+		query["initialPlayer"] = "B" if tree.turn_at(node) == Board.Stone.BLACK else "W"
 	return query
 
 

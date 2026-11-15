@@ -8,6 +8,11 @@ extends Node
 
 const FILE_NAME: String = "settings.json"
 
+## The file actually read and written. Scripted runs (the tests) switch this to
+## a file of their own so they never write test values into the user's
+## settings.
+var file_name: String = FILE_NAME
+
 signal settings_changed
 
 var engine_path: String = ""
@@ -24,11 +29,18 @@ var ai_visits: int = 60
 var use_human_model: bool = true
 var human_profile: String = "rank_5k"
 
-## Board defaults for a new game.
+## Board defaults for a new game: the choices made in the New game dialog the
+## last time, so the next game starts from them.
 var board_size: int = 19
 var komi: float = 6.5
 var rules: String = "japanese"
 var handicap: int = 0
+## True when that komi was typed by hand; otherwise the dialog fills in the
+## standard komi for the rules (see NewGameDialog.standard_komi).
+var komi_custom: bool = false
+## The opponent chosen last time ("rank_5k", "preaz_10k", "rank_beginner", ...),
+## or "" for a game between two people.
+var new_game_profile: String = "rank_5k"
 
 ## Overlays.
 var show_coordinates: bool = true
@@ -78,6 +90,8 @@ func defaults() -> Dictionary:
 		"komi": komi,
 		"rules": rules,
 		"handicap": handicap,
+		"komi_custom": komi_custom,
+		"new_game_profile": new_game_profile,
 		"show_coordinates": show_coordinates,
 		"show_move_numbers": show_move_numbers,
 		"show_last_move": show_last_move,
@@ -96,7 +110,7 @@ func defaults() -> Dictionary:
 func load_settings() -> void:
 	loaded = false
 	load_error = ""
-	var path: String = "user://" + FILE_NAME
+	var path: String = "user://" + file_name
 	if not FileAccess.file_exists(path):
 		# A missing file is the normal first-run state, not an error.
 		loaded = true
@@ -127,6 +141,8 @@ func load_settings() -> void:
 	komi = float(data.get("komi", komi))
 	rules = String(data.get("rules", rules))
 	handicap = int(data.get("handicap", handicap))
+	komi_custom = bool(data.get("komi_custom", komi_custom))
+	new_game_profile = String(data.get("new_game_profile", new_game_profile))
 	show_coordinates = bool(data.get("show_coordinates", show_coordinates))
 	show_move_numbers = bool(data.get("show_move_numbers", show_move_numbers))
 	show_last_move = bool(data.get("show_last_move", show_last_move))
@@ -146,10 +162,10 @@ func load_settings() -> void:
 func save_settings() -> void:
 	var data: Dictionary = _extra.duplicate(true)
 	data.merge(defaults(), true)
-	var file: FileAccess = FileAccess.open("user://" + FILE_NAME, FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open("user://" + file_name, FileAccess.WRITE)
 	if file == null:
 		load_error = "could not write user://%s (%s)" \
-			% [FILE_NAME, error_string(FileAccess.get_open_error())]
+			% [file_name, error_string(FileAccess.get_open_error())]
 		push_warning("Settings: " + load_error)
 		return
 	# One line is enough; no indent, so the file stays easy to diff by hand.
@@ -169,14 +185,16 @@ func apply_and_save(values: Dictionary) -> void:
 func set_value(key: String, value: Variant) -> void:
 	match key:
 		"engine_path", "model_path", "human_model_path", "config_path", \
-		"human_profile", "rules", "last_dir", "board_color", "line_color":
+		"human_profile", "rules", "last_dir", "board_color", "line_color", \
+		"new_game_profile":
 			set(key, String(value))
 		"live_visits", "review_visits", "ai_visits", "board_size", "handicap":
 			set(key, int(value))
 		"komi", "inaccuracy_at", "mistake_at", "blunder_at":
 			set(key, float(value))
 		"use_human_model", "show_coordinates", "show_move_numbers", \
-		"show_last_move", "show_candidates", "show_ownership", "show_hints":
+		"show_last_move", "show_candidates", "show_ownership", "show_hints", \
+		"komi_custom":
 			set(key, bool(value))
 		_:
 			push_warning("Settings: unknown key %s" % key)

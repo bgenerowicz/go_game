@@ -265,6 +265,41 @@ func _run() -> void:
 		dialog.size_box.item_selected.emit(2)
 		_check(dialog.komi_box.text == "5.5", "a komi typed by hand is kept")
 		dialog.hide()
+		# The choices of a started game come back the next time, from the
+		# test's own settings file (never the user's).
+		var app_settings: Node = root.get_node_or_null("/root/Settings")
+		_check(app_settings != null and app_settings.file_name == "test_settings.json",
+			"a scripted run saves settings to its own file")
+		root._open_new_game_dialog()
+		await process_frame
+		dialog.size_box.select(1)
+		dialog.size_box.item_selected.emit(1)  # 13x13
+		dialog.rules_box.select(1)
+		dialog.rules_box.item_selected.emit(1)  # chinese -> komi 7.5
+		dialog.engine_box.button_pressed = true
+		dialog.style_box.selected = 1  # pre-AI
+		dialog.rank_box.selected = dialog.RANKS.find("beginner")
+		dialog.confirmed.emit()
+		dialog.hide()
+		await process_frame
+		root._open_new_game_dialog()
+		await process_frame
+		_check(dialog.SIZES[dialog.size_box.selected] == 13, "board size remembered")
+		_check(dialog.RULES[dialog.rules_box.selected] == "chinese", "rules remembered")
+		_check(dialog.komi_box.text == "7.5", "standard komi for the remembered rules")
+		_check(dialog.engine_box.button_pressed and dialog.profile() == "preaz_beginner",
+			"opponent style and level remembered (%s)" % dialog.profile())
+		_check(dialog.COLOURS[dialog.colour_box.selected] == "random", "colour still defaults to Random")
+		# A hand-typed komi is remembered as such.
+		dialog.komi_box.text = "6.0"
+		dialog.komi_box.text_changed.emit("6.0")
+		dialog.confirmed.emit()
+		dialog.hide()
+		await process_frame
+		root._open_new_game_dialog()
+		await process_frame
+		_check(dialog.komi_box.text == "6.0", "a typed komi comes back")
+		dialog.hide()
 		# A handicap game places stones and drops komi to 0.5 by default.
 		root._open_new_game_dialog()
 		await process_frame

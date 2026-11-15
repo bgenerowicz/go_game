@@ -148,15 +148,16 @@ func _label(text: String) -> Label:
 ## Pre-fills the dialog from the current game so "New game" starts from sensible
 ## defaults, and from the saved settings for the opponent.
 func open_with(p_size: int, p_komi: float, p_rules: String, p_handicap: int,
-		p_profile: String, p_human_colour: String) -> void:
+		p_profile: String, p_human_colour: String, p_komi_custom: bool = false) -> void:
 	size_box.selected = maxi(0, SIZES.find(p_size))
 	var rules_index: int = RULES.find(p_rules)
 	rules_box.selected = rules_index if rules_index >= 0 else 0
 	handicap_box.set_value_no_signal(clampi(p_handicap, 0, 9))
-	# Start from the standard komi for these settings, not the last game's: a
-	# komi typed once (say 7.5 on 9x9) used to stick to every later game.
-	# p_komi is kept in the signature for callers but no longer copied.
-	_komi_touched = false
+	# The standard komi for these settings, unless the last game's komi was
+	# typed by hand: then that komi comes back and stays put.
+	_komi_touched = p_komi_custom
+	if p_komi_custom:
+		komi_box.text = str(p_komi)
 	_apply_standard_komi()
 	# A profile name such as "preaz_5k" splits into style plus rank.
 	engine_box.button_pressed = p_profile != ""
@@ -232,6 +233,7 @@ func profile() -> String:
 
 func params() -> Dictionary:
 	return {
+		"komi_custom": _komi_touched,
 		"size": SIZES[size_box.selected] if size_box.selected >= 0 else 19,
 		"komi": komi_value(),
 		"rules": RULES[rules_box.selected] if rules_box.selected >= 0 else "japanese",

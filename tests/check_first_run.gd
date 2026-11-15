@@ -75,10 +75,15 @@ func _move_settings_aside() -> bool:
 
 
 func _restore() -> void:
-	if not _backed_up:
-		return
 	var dir: DirAccess = DirAccess.open("user://")
 	if dir == null:
+		return
+	if not _backed_up:
+		# There was no settings file before: remove the one this check wrote,
+		# or its test values (13x13, komi 7.5, rank 10k) become the user's.
+		if dir.file_exists("settings.json"):
+			dir.remove("settings.json")
+			print("  ok   the test's settings.json removed (there was none before)")
 		return
 	if dir.file_exists("settings.json"):
 		dir.remove("settings.json")

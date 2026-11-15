@@ -79,6 +79,11 @@ var live_request_id: String = ""
 func _ready() -> void:
 	if get_tree().current_scene != self:
 		save_dir = TEST_SAVE_DIR
+		# Tests must not write into the user's settings either (the new-game
+		# choices are saved there when a game starts).
+		var test_settings: Node = get_node_or_null("/root/Settings")
+		if test_settings != null:
+			test_settings.file_name = "test_settings.json"
 	_random.randomize()
 	var settings: Node = get_node_or_null("/root/Settings")
 	if settings != null:
@@ -1264,16 +1269,40 @@ func _open_new_game_dialog() -> void:
 		dialog.confirmed.connect(_on_new_game_confirmed)
 		add_child(dialog)
 		new_game_dialog = dialog
-	var profile: String = ai.profile if ai != null else ""
-	# Your colour defaults to Random each time; pick Black or White in the
-	# dialog to choose.
+	# The dialog opens with the choices made last time (saved in Settings when a
+	# game starts). Your colour is the exception: it defaults to Random each
+	# time; pick Black or White in the dialog to choose.
+	var settings: Node = get_node_or_null("/root/Settings")
 	var human_colour: String = "random"
-	new_game_dialog.open_with(flow.tree.size, flow.tree.komi, flow.tree.rules,
-		flow.tree.handicap, profile, human_colour)
+	if settings != null:
+		new_game_dialog.open_with(int(settings.board_size), float(settings.komi),
+			String(settings.rules), int(settings.handicap), String(settings.new_game_profile),
+			human_colour, bool(settings.komi_custom))
+	else:
+		new_game_dialog.open_with(flow.tree.size, flow.tree.komi, flow.tree.rules,
+			flow.tree.handicap, ai.profile if ai != null else "", human_colour)
 
 
 func _on_new_game_confirmed() -> void:
-	_new_game_with(new_game_dialog.params())
+	var p: Dictionary = new_game_dialog.params()
+	_remember_new_game(p)
+	_new_game_with(p)
+
+
+## Saves the dialog's choices, so the next New game (and the next start of the
+## app, which opens on the saved board size) begins from them.
+func _remember_new_game(p: Dictionary) -> void:
+	var settings: Node = get_node_or_null("/root/Settings")
+	if settings == null:
+		return
+	settings.apply_and_save({
+		"board_size": int(p["size"]),
+		"komi": float(p["komi"]),
+		"komi_custom": bool(p.get("komi_custom", false)),
+		"rules": String(p["rules"]),
+		"handicap": int(p["handicap"]),
+		"new_game_profile": String(p["profile"]),
+	})
 
 
 func _new_game_with(p: Dictionary) -> void:

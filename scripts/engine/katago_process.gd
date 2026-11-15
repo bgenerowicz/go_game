@@ -362,6 +362,14 @@ func start_engine() -> bool:
 		args.append("-human-model")
 		args.append(human_model_path)
 	args.append_array(extra_args)
+	# The config logs to a relative "analysis_logs" folder. An exported Mac app
+	# starts in "/", where that cannot be created, so logs go to the app's own
+	# data folder instead (the project folder when run from the editor gets
+	# the same place, which keeps run logs out of the repository).
+	var log_dir: String = OS.get_user_data_dir().path_join("katago_logs")
+	DirAccess.make_dir_recursive_absolute(log_dir)
+	args.append("-override-config")
+	args.append("logDir=" + log_dir)
 	if nn_board_size > 0:
 		args.append("-override-config")
 		args.append("maxBoardXSizeForNNBuffer=%d,maxBoardYSizeForNNBuffer=%d,requireMaxBoardSize=true"

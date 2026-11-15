@@ -88,6 +88,11 @@ mapping makes it fail, which is how the check itself was validated.
 
 ## Running the app
 
+On the Mac, `build/macos/go_game.app` is the exported app. It is rebuilt
+automatically after every commit (`.githooks/post-commit`, enabled once with
+`git config core.hooksPath .githooks`), or by hand with `tools/export_macos.sh`.
+It bundles the networks and config; the KataGo binary comes from Homebrew.
+
 ```
 with-display $GODOT --path .        # the window itself, on the virtual display
 ```

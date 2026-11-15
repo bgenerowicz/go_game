@@ -14,6 +14,9 @@ runtime/
 # KataGo writes run logs into the working directory
 analysis_logs/
 
+# Exported builds (scripts/export_macos.sh)
+build/
+
 # Godot
 .godot/
 *.translation

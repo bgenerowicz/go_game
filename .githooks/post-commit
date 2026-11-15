@@ -1,0 +1,8 @@
+#!/bin/sh
+# Rebuild build/macos/go_game.app after every commit, in the background so the
+# commit itself returns at once. Progress and errors: build/macos/export.log.
+# Enabled per clone with:  git config core.hooksPath .githooks
+ROOT="$(git rev-parse --show-toplevel)"
+mkdir -p "$ROOT/build/macos"
+nohup "$ROOT/tools/export_macos.sh" >> "$ROOT/build/macos/export.log" 2>&1 &
+exit 0

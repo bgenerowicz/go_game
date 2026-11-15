@@ -294,6 +294,11 @@ func _build_ui() -> void:
 func _build_menu() -> MenuBar:
 	var menu: MenuBar = MenuBar.new()
 	menu.name = "Menu"
+	# On macOS a MenuBar moves its menus to the system menu bar at the top of
+	# the screen by default, so the exported app showed no menu in its window
+	# (the editor's Game tab cannot do that, so there they stayed in place).
+	# Keep them in the window everywhere, the same in every way the app runs.
+	menu.prefer_global_menu = false
 
 	var game_menu: PopupMenu = PopupMenu.new()
 	game_menu.name = "Game"

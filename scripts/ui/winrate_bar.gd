@@ -1,7 +1,7 @@
 class_name WinRateBar
 extends Control
 
-## A horizontal win-rate bar for the info panel (PLAN 6.2): Black's share from
+## A horizontal win-rate bar for the info panel: Black's share from
 ## the left, White's from the right, a midline at 50 %, each side's percentage
 ## printed inside its own segment, and the score lead plus visits underneath.
 

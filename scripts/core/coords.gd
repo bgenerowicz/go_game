@@ -1,7 +1,7 @@
 class_name Coords
 extends RefCounted
 
-## The ONLY place that converts between coordinate systems (PLAN.md section 8).
+## The ONLY place that converts between coordinate systems.
 ##
 ## Internal convention: x is 0..size-1 from the left, y is 0..size-1 from the TOP.
 ## GTP (engine): column letter + row number, where the letter "I" is skipped and

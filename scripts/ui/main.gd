@@ -44,7 +44,7 @@ var comment_edit: TextEdit
 ## Guards the comment box against writing its own text back into the tree.
 var _setting_comment: bool = false
 var review_label: Label
-## Win-rate bar and the per-player mistake list in the info panel (PLAN 6.2).
+## Win-rate bar and the per-player mistake list in the info panel.
 var winrate_bar: WinRateBar
 var mistake_title: Label
 var mistake_box: VBoxContainer
@@ -103,7 +103,7 @@ func _ready() -> void:
 	# a key, the AI, a test driving GameFlow directly) repaints the whole UI.
 	flow.position_changed.connect(_on_position_changed)
 	flow.game_state_changed.connect(_on_game_state_changed)
-	# Dropping an .sgf onto the window opens it (PLAN 6.2).
+	# Dropping an .sgf onto the window opens it.
 	var window: Window = get_window()
 	if window != null:
 		if window.has_signal("files_dropped"):
@@ -159,13 +159,13 @@ func _on_game_state_changed() -> void:
 	# has its result.
 	if flow.over and flow.ended_by_passes:
 		_schedule_scoring()
-	# A finished game is auto-saved (PLAN 6.1). The result text is written once
+	# A finished game is auto-saved. The result text is written once
 	# the count lands, so _finish_scoring saves again after that.
 	if flow.over:
 		autosave()
 
 
-## PLAN 6.1: after two passes, ask the engine for ownership at 500 visits, show
+## After two passes, ask the engine for ownership at 500 visits, show
 ## the overlay and report the result as the engine's scoreLead rounded to the
 ## nearest 0.5, written to RE. With no engine available, fall back to a plain
 ## area count so a two-human game still ends with a number.
@@ -336,7 +336,7 @@ func _build_menu() -> MenuBar:
 	view_menu.add_check_item("Suggested moves on the board (C)", 23)
 	view_menu.add_check_item("Ownership on the board (O)", 24)
 	view_menu.add_check_item("Live analysis (L)", 25)
-	# PLAN 6.1: analysis output is hidden during a game unless this is ticked.
+	# Analysis output is hidden during a game unless this is ticked.
 	view_menu.add_check_item("Show hints during a game", 26)
 	view_menu.set_item_checked(view_menu.get_item_index(20), true)
 	view_menu.set_item_checked(view_menu.get_item_index(23), true)
@@ -412,7 +412,7 @@ func _build_side_panel() -> VBoxContainer:
 	view.add_child(winrate_bar)
 	analysis_label = _text_label("Analysis", FONT_SMALL, COLOR_TEXT)
 	view.add_child(analysis_label)
-	# PLAN 6.2 ownership overlay: "Show 'Black +x.x' score estimate".
+	# Ownership overlay: "Show 'Black +x.x' score estimate".
 	ownership_label = _text_label("OwnershipEstimate", FONT_SMALL, COLOR_MUTED)
 	view.add_child(ownership_label)
 	live_toggle = CheckButton.new()
@@ -462,7 +462,7 @@ func _build_side_panel() -> VBoxContainer:
 	var review_button: Button = _button("Review game", _run_review)
 	review_row.add_child(review_button)
 	review_box.add_child(review_row)
-	# PLAN 6.2: "Side panel lists the top mistakes per player; clicking one jumps
+	# "Side panel lists the top mistakes per player; clicking one jumps
 	# to it." Buttons rather than a text block so each entry is clickable.
 	mistake_title = _text_label("MistakeTitle", FONT_SMALL, COLOR_MUTED)
 	mistake_title.text = "Biggest mistakes (click to jump)"
@@ -480,7 +480,7 @@ func _build_side_panel() -> VBoxContainer:
 	mistake_scroll.add_child(mistake_box)
 	review_box.add_child(mistake_scroll)
 
-	# --- Comment on the shown position (SGF C property, PLAN 6.2) -----------
+	# --- Comment on the shown position (SGF C property) ------------------
 	var notes: VBoxContainer = _section(panel, "CommentCard", "Comment")
 	comment_edit = TextEdit.new()
 	comment_edit.name = "Comment"
@@ -499,7 +499,7 @@ func _build_side_panel() -> VBoxContainer:
 	engine_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	engine_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	footer.add_child(engine_label)
-	# PLAN 5.2: a dead engine must be restartable from the UI.
+	# A dead engine must be restartable from the UI.
 	restart_button = _button("Restart engine", _restart_engine)
 	restart_button.name = "RestartEngine"
 	restart_button.add_theme_font_size_override("font_size", FONT_SMALL)
@@ -632,11 +632,11 @@ func _set_engine_status(text: String) -> void:
 	if engine_label != null:
 		engine_label.text = "Engine: " + text
 	# Also put it on the console: a first run with no engine files must say
-	# plainly which path to set (PLAN milestone 9).
+	# plainly which path to set.
 	print("engine status: " + text)
 
 
-## PLAN 5.2: when the engine dies (crash, killed process, bad config) the user
+## When the engine dies (crash, killed process, bad config) the user
 ## gets a message naming the reason and a way to bring it back without quitting.
 func _restart_engine() -> void:
 	if engine == null:
@@ -654,7 +654,7 @@ func _restart_engine() -> void:
 		_open_settings()
 
 
-## Review of the whole game (PLAN 5.3): one query listing every turn of the main
+## Review of the whole game: one query listing every turn of the main
 ## line. Results land in node.analysis, which the graph and mistake list read.
 func _run_review() -> void:
 	if analysis == null or engine == null or not engine.running:
@@ -732,7 +732,7 @@ func _set_review_status(text: String) -> void:
 		review_label.text = text
 
 
-## The mistake list in the side panel (PLAN 6.2): "Side panel lists the top
+## The mistake list in the side panel: "Side panel lists the top
 ## mistakes per player; clicking one jumps to it."
 const MISTAKES_PER_PLAYER: int = 6
 
@@ -828,7 +828,7 @@ func _goto(node: GameNode) -> void:
 	_request_live_analysis()
 
 
-## Live analysis of the shown position (PLAN 5.3). Analysis.request_live already
+## Live analysis of the shown position. Analysis.request_live already
 ## terminates the query it replaces, so navigating cancels the old search.
 func _request_live_analysis() -> void:
 	if analysis == null or not live_enabled:
@@ -837,7 +837,7 @@ func _request_live_analysis() -> void:
 	# tries variations and wants the engine's view of them.
 	if flow.over and mode != "review":
 		return
-	# PLAN 6.1: during a game the engine is not asked for hints unless the user
+	# During a game the engine is not asked for hints unless the user
 	# ticked "show hints". The opponent's own move request is separate.
 	if not _hints_visible():
 		return
@@ -908,7 +908,7 @@ func _on_analysis_updated(node: GameNode) -> void:
 
 
 ## A short read-out of the cached result for the shown position, plus the win
-## rate bar and the ownership estimate in the info panel (PLAN 6.2).
+## rate bar and the ownership estimate in the info panel.
 ##
 ## The engine config sets reportAnalysisWinratesAs = BLACK, so "winrate" and
 ## "score_lead" are already Black-perspective: the bar needs no conversion, but
@@ -958,7 +958,7 @@ func _clear_analysis_readout() -> void:
 		ownership_label.text = ""
 
 
-## Opponent moves (PLAN 5.4). The engine is asked for one position with the human
+## Opponent moves. The engine is asked for one position with the human
 ## policy included, then AiPlayer samples from it.
 func _offer_ai_move() -> void:
 	if ai_side == 0 or ai == null or analysis == null or flow.over:
@@ -1029,7 +1029,7 @@ func _on_board_clicked(point: Vector2i) -> void:
 
 
 ## In review mode a click on an existing stone follows that variation, and a
-## click on an empty point adds a new variation move (PLAN 6.2).
+## click on an empty point adds a new variation move.
 func _select_variation(point: Vector2i) -> void:
 	for child in flow.current().children:
 		if child.move != null and child.move_point() == point:
@@ -1401,7 +1401,7 @@ func _on_view_menu(id: int) -> void:
 			_set_live_enabled(not live_enabled)
 		20, 21, 23, 24, 26:
 			# Overlay toggles live in Settings so they persist and the settings
-			# dialog cannot drift out of step with this menu (PLAN 6.2 toggles).
+			# dialog cannot drift out of step with this menu.
 			var key: String = _view_key(id)
 			var settings: Node = get_node_or_null("/root/Settings")
 			if settings == null:
@@ -1623,7 +1623,7 @@ func _on_save_path(path: String) -> void:
 
 
 ## Writes to user://games with a timestamped name, so nothing is ever lost.
-## PLAN 6.1: "Auto-save every finished or abandoned game to
+## "Auto-save every finished or abandoned game to
 ## user://games/YYYY-MM-DD_HHMM.sgf". One file per game: the name is stamped the
 ## first time this game is written and reused afterwards, so playing a game does
 ## not leave a trail of files. A stamp that is already taken (two games in the
@@ -1692,7 +1692,7 @@ func autosave(force: bool = false) -> String:
 	return _autosave_path
 
 
-## Quitting mid-game is the "abandoned game" case (PLAN 6.1). The tree only needs
+## Quitting mid-game is the "abandoned game" case. The tree only needs
 ## saving when something was actually played.
 func _save_if_played() -> void:
 	if flow.tree.node_count() > 1 or not flow.tree.result.is_empty():
@@ -1715,7 +1715,7 @@ func _notification(what: int) -> void:
 ## Settings ------------------------------------------------------------
 
 ## Pushes the current settings into the views. Called once at start-up and again
-## whenever the settings dialog saves (PLAN 6.3 board colours, 6.2 thresholds).
+## whenever the settings dialog saves (board colours, thresholds).
 func _apply_settings() -> void:
 	var settings: Node = get_node_or_null("/root/Settings")
 	if settings == null:
@@ -1763,7 +1763,7 @@ func _sync_view_checks() -> void:
 
 
 ## Analysis output may only appear during a game when the user asked for it
-## (PLAN 6.1: "No analysis output is visible during a game unless the user ticks
+## ("No analysis output is visible during a game unless the user ticks
 ## show hints"). Review mode always shows it, and a finished game shows the
 ## engine estimate the two-pass rule asks for.
 func _hints_visible() -> bool:
@@ -1782,7 +1782,7 @@ func _refresh() -> void:
 		return
 	board_view.show_position(flow.tree, flow.current())
 	var node: GameNode = flow.current()
-	# PLAN 6.1: during a game the overlays and the read-out stay hidden unless
+	# During a game the overlays and the read-out stay hidden unless
 	# the user ticked "show hints". show_position() loads whatever analysis the
 	# node happens to hold (the opponent's own move request fills it), so the
 	# gating has to happen here too, not only when a result arrives.
@@ -1813,7 +1813,7 @@ func _refresh() -> void:
 	var board: Board = flow.tree.board_at(node)
 	captures_label.text = "Captured by Black: %d   ·   by White: %d" \
 		% [int(board.captures[Board.Stone.BLACK]), int(board.captures[Board.Stone.WHITE])]
-	# PLAN 6.2 info panel: player names. SGF PB/PW are optional, so fall back to
+	# Info panel: player names. SGF PB/PW are optional, so fall back to
 	# the colour, and mark the side the engine plays when there is an opponent.
 	if players_label != null:
 		var black_name: String = flow.tree.black_name

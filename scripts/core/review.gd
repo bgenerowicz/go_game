@@ -1,7 +1,7 @@
 class_name Review
 extends RefCounted
 
-## Mistake classification over an analysed game tree (PLAN 6.2).
+## Mistake classification over an analysed game tree.
 ##
 ## All scores are Black-perspective (the engine is configured with
 ## reportAnalysisWinratesAs = BLACK). For the move that leads from turn t to
@@ -175,7 +175,7 @@ static func _by_loss_descending(a: Dictionary, b: Dictionary) -> bool:
 	return float(a["loss"]) > float(b["loss"])
 
 
-## The territory estimate implied by an ownership array (PLAN 6.2: "Show
+## The territory estimate implied by an ownership array ("Show
 ## 'Black +x.x' score estimate"). KataGo sends size*size values, row-major from
 ## the top-left, each -1..1 with +1 meaning Black owns the point; a trailing
 ## entry for pass is ignored. The sum is the estimated margin in Black's favour.
@@ -190,7 +190,7 @@ static func ownership_score(ownership: Array) -> float:
 	return total
 
 
-## Same number, formatted the way the PLAN asks: "Black +3.5" / "White +12.0".
+## Same number, formatted as: "Black +3.5" / "White +12.0".
 static func ownership_text(ownership: Array) -> String:
 	if ownership.is_empty():
 		return ""

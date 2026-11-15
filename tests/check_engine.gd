@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Milestone 4 check (PLAN section 7): start KataGo headless, get a query_version
+## Milestone 4 check: start KataGo headless, get a query_version
 ## reply, analyse an empty 19x19 board at 50 visits, print the best move and exit
 ## cleanly with no orphaned katago process.
 ##

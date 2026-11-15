@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build engine/analysis.cfg from KataGo's analysis_example.cfg.
 
-PLAN.md section 4.1: copy the example and set these keys (add if absent,
+Copy the example and set these keys (add if absent,
 replace if present). Everything else keeps KataGo's own documented defaults.
 """
 import re
@@ -23,7 +23,7 @@ REQUIRED = {
 }
 
 # Nothing else is tuned: the example's own defaults are kept for everything the
-# PLAN does not name, so a GPU box and this CPU box share one config.
+# script does not set, so a GPU box and this CPU box share one config.
 
 
 def main() -> int:

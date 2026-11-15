@@ -1,6 +1,6 @@
 extends RefCounted
 
-## Settings defaults and coercion (PLAN 6.3: mistake thresholds, board colours,
+## Settings defaults and coercion (mistake thresholds, board colours,
 ## show-hints). The runner instantiates this and calls run(a).
 ##
 ## Deliberately does not call save_settings()/load_settings(): those touch the
@@ -36,13 +36,13 @@ func _test_defaults_cover_every_spec_key() -> void:
 			"inaccuracy_at", "mistake_at", "blunder_at",
 			"board_color", "line_color", "last_dir"]:
 		a.check(defaults.has(key), "defaults() has %s" % key)
-	# PLAN 6.2 classification bands: 2..5 inaccuracy, 5..10 mistake, 10+ blunder.
+	# Classification bands: 2..5 inaccuracy, 5..10 mistake, 10+ blunder.
 	a.check_eq(s.inaccuracy_at, 2.0, "inaccuracy threshold")
 	a.check_eq(s.mistake_at, 5.0, "mistake threshold")
 	a.check_eq(s.blunder_at, 10.0, "blunder threshold")
 	a.check(s.inaccuracy_at < s.mistake_at and s.mistake_at < s.blunder_at,
 		"thresholds ascend")
-	# PLAN 6.1: no analysis during a game unless the user asks for it.
+	# No analysis during a game unless the user asks for it.
 	a.check_eq(s.show_hints, false, "hints are off by default")
 	# Colours must be valid HTML so they survive the JSON round trip.
 	for key in ["board_color", "line_color"]:

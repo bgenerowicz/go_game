@@ -1,7 +1,7 @@
 class_name TreeView
 extends Control
 
-## Move tree (PLAN 6.2): the main line runs horizontally, variations branch
+## Move tree: the main line runs horizontally, variations branch
 ## below it, the current node is highlighted and clicking a node jumps to it.
 ## It lives inside a ScrollContainer, so long games scroll in both directions.
 

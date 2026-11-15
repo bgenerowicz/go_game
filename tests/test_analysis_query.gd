@@ -68,7 +68,7 @@ func _test_query_shape(svc) -> void:
 	var empty: GameTree = GameTree.new(9, 6.5)
 	a.check_eq(str(svc._build_query(empty, empty.current, 100, {})["initialPlayer"]), "B",
 		"an empty board starts with Black")
-	# humanSLProfile belongs inside overrideSettings (PLAN 4.3).
+	# humanSLProfile belongs inside overrideSettings.
 	var human: Dictionary = svc._build_query(t, t.current, 40, {"human_profile": "rank_10k"})
 	a.check_eq(str(human["overrideSettings"]["humanSLProfile"]), "rank_10k", "profile in overrideSettings")
 	a.check(not human.has("humanSLProfile"), "profile not on the outer object")
@@ -108,7 +108,7 @@ func _test_review_turns(svc) -> void:
 func _test_no_engine_is_safe(svc) -> void:
 	a.section("analysis: missing engine is handled, not a crash")
 	# The engine binary is gitignored and may be absent; every entry point must
-	# degrade to "" instead of erroring out (PLAN milestone 9).
+	# degrade to "" instead of erroring out.
 	var t: GameTree = GameTree.new(9, 6.0)
 	t.play_move(Board.Stone.BLACK, 2, 2)
 	a.check_eq(svc.request(t.current, 10, {"tree": t}), "", "request with no engine")

@@ -63,7 +63,7 @@ func _test_presets_load() -> void:
 		a.check(DirAccess.dir_exists_absolute("res://" + folder),
 			"%s exists for the packaging step" % folder)
 
-	# PLAN section 8: a sandboxed macOS app cannot exec the KataGo binary.
+	# A sandboxed macOS app cannot exec the KataGo binary.
 	var macos: String = "preset.1"
 	if cfg.has_section(macos + ".options"):
 		var sandbox: Variant = cfg.get_value(macos + ".options",

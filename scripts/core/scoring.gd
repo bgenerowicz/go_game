@@ -1,7 +1,7 @@
 class_name Scoring
 extends RefCounted
 
-## End-of-game result reporting (PLAN 6.1).
+## End-of-game result reporting.
 ##
 ## The primary path is the engine estimate: after two passes we ask for an
 ## analysis with ownership and report rootInfo.scoreLead, rounded to the nearest
@@ -45,7 +45,7 @@ static func engine_result(score_lead: float) -> String:
 
 
 ## A candidate move list from moveInfos, keeping only entries with at least
-## `min_fraction` of the root visits (PLAN 6.2 candidate rules).
+## `min_fraction` of the root visits.
 static func significant_moves(analysis: Dictionary, min_fraction: float = 0.01) -> Array:
 	var visits: int = int(analysis.get("visits", 0))
 	var out: Array = []

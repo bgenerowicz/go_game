@@ -1,6 +1,6 @@
 extends Node
 
-## User settings, stored as JSON in user://settings.json (PLAN 5 architecture).
+## User settings, stored as JSON in user://settings.json.
 ## Registered as the autoload "Settings".
 ##
 ## Every value has a working default, so a fresh user:// folder gives a usable
@@ -20,12 +20,12 @@ var model_path: String = ""
 var human_model_path: String = ""
 var config_path: String = ""
 
-## Visit budgets (PLAN 5.3).
+## Visit budgets.
 var live_visits: int = 2000
 var review_visits: int = 200
 var ai_visits: int = 60
 
-## Human-like opponent (PLAN 4.7 / 5.4).
+## Human-like opponent.
 var use_human_model: bool = true
 var human_profile: String = "rank_5k"
 
@@ -48,15 +48,15 @@ var show_move_numbers: bool = false
 var show_last_move: bool = true
 var show_candidates: bool = true
 var show_ownership: bool = false
-## PLAN 6.1: no analysis output during a game unless the user ticks "show hints".
+## No analysis output during a game unless the user ticks "show hints".
 var show_hints: bool = false
 
-## Mistake thresholds in points (PLAN 6.2: "Thresholds are settings").
+## Mistake thresholds in points ("Thresholds are settings").
 var inaccuracy_at: float = 2.0
 var mistake_at: float = 5.0
 var blunder_at: float = 10.0
 
-## Board colours (PLAN 6.3), stored as "#rrggbb" so they survive JSON.
+## Board colours, stored as "#rrggbb" so they survive JSON.
 var board_color: String = "#d5ae6a"
 var line_color: String = "#261c0f"
 
@@ -200,7 +200,7 @@ func set_value(key: String, value: Variant) -> void:
 			push_warning("Settings: unknown key %s" % key)
 
 
-## The board sizes the app supports (PLAN section 2).
+## The board sizes the app supports.
 func is_valid_board_size(value: int) -> bool:
 	return value == 9 or value == 13 or value == 19
 
@@ -218,7 +218,7 @@ func set_color(key: String, value: Color) -> void:
 	set_value(key, value.to_html(false))
 
 
-## A sensible folder for the SGF dialogs on this OS (PLAN milestone 9): the last
+## A sensible folder for the SGF dialogs on this OS: the last
 ## place the user looked if it still exists, otherwise Documents, then Desktop,
 ## then the project folder. Never returns "" so a fresh user:// first run still
 ## opens a usable dialog.

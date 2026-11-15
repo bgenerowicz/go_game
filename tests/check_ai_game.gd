@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Milestone 5 check (PLAN section 7): play 30 moves of engine-vs-engine at
+## Milestone 5 check: play 30 moves of engine-vs-engine at
 ## rank_10k, with every move checked for legality against Board before it is
 ## played, then exit cleanly with no orphaned katago process.
 ##

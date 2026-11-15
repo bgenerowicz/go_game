@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## Milestone 9 check: an engine that is missing or that dies mid-game must be
-## reported clearly and be restartable without quitting the app (PLAN 5.2).
+## reported clearly and be restartable without quitting the app.
 ##
 ## Run with: godot --headless --script tests/check_engine_crash.gd
 ## Exits non-zero on failure. Leaves no orphaned katago process behind.
@@ -114,7 +114,7 @@ func _finish() -> void:
 	if engine != null and is_instance_valid(engine):
 		engine.stop_engine()
 	await process_frame
-	# No orphaned katago process may survive the run (PLAN milestone 4 wording).
+	# No orphaned katago process may survive the run.
 	var out: Array = []
 	OS.execute("pgrep", PackedStringArray(["-c", "katago"]), out)
 	var left: String = ""

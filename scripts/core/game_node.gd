@@ -25,7 +25,7 @@ var comment: String = ""
 ## Properties attached to this node that the app does not model (setup, territory,
 ## unknown tags). Kept verbatim so they survive a parse -> write -> parse round trip.
 var extra_properties: Dictionary = {}
-## Cached engine analysis for this position, filled by AnalysisService (PLAN 5.3).
+## Cached engine analysis for this position, filled by AnalysisService.
 var analysis: Dictionary = {}
 ## Board for this position, built lazily by GameTree.board_at().
 var board: Board = null

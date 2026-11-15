@@ -35,7 +35,7 @@ var mover_color: int = Board.Stone.BLACK
 
 ## Loss (in points) at which a candidate circle goes fully red.
 const LOSS_COLOR_SPAN: float = 10.0
-## PLAN 6.2: at most 8 candidates, each with at least 1% of the root visits.
+## At most 8 candidates, each with at least 1% of the root visits.
 const MAX_CANDIDATES: int = 8
 const MIN_VISIT_FRACTION: float = 0.01
 
@@ -71,7 +71,7 @@ func show_position(p_tree: GameTree, p_node: GameNode) -> void:
 ## Fills the ownership and candidate overlays from a cached engine result.
 ## Candidates are the engine's own order (best first), filtered to at least 1% of
 ## the root visits and capped at 8, each with the points it gives up against the
-## best (PLAN 6.2). Win rates are converted to the player to move.
+## best. Win rates are converted to the player to move.
 func set_analysis(analysis: Dictionary) -> void:
 	if analysis == null or analysis.is_empty():
 		ownership = []
@@ -356,7 +356,7 @@ func _draw_ownership(n: int, cell: float) -> void:
 			draw_rect(Rect2(center - Vector2(half, half), Vector2(half * 2.0, half * 2.0)), tint)
 
 
-## Candidate circles (PLAN 6.2): the best move is blue, the rest are shaded from
+## Candidate circles: the best move is blue, the rest are shaded from
 ## green to red by the points they give up against the best. Inside each circle:
 ## the win rate for the player to move, and the points lost. The move actually
 ## played in the game gets an extra ring.
@@ -392,8 +392,8 @@ func _loss_color(loss: float) -> Color:
 	return Color(0.15 + 0.7 * t, 0.6 - 0.45 * t, 0.15)
 
 
-## Hovering a candidate draws its pv as numbered semi-transparent stones
-## (PLAN 6.2). The variation is drawn on top of the current position, not
+## Hovering a candidate draws its pv as numbered semi-transparent stones.
+## The variation is drawn on top of the current position, not
 ## committed to it, and cleared when the pointer leaves.
 func _draw_candidate_pv(entry: Dictionary, n: int, cell: float) -> void:
 	var pv: Array = entry.get("pv", []) as Array

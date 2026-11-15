@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## Milestone 9 check: the layout must stay usable when the window is small
-## (PLAN section 7: "window layout at small sizes").
+## ("window layout at small sizes").
 ##
 ## Run with: godot --headless --script tests/check_window_layout.gd
 ## Instantiates the real main scene, resizes the root window through a range of

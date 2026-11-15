@@ -92,7 +92,7 @@ func _init() -> void:
 	else:
 		print("FAIL: no analysis response")
 
-	# A terminated query must still send a final response (PLAN 4.6).
+	# A terminated query must still send a final response.
 	engine.send({"id": "q2", "moves": [], "rules": "chinese", "komi": 7.5,
 		"boardXSize": 9, "boardYSize": 9, "maxVisits": 100000,
 		"reportDuringSearchEvery": 0.3})

@@ -1,6 +1,6 @@
 extends RefCounted
 
-## AiPlayer move-selection tests (PLAN 5.4). Pure logic: no engine needed, the
+## AiPlayer move-selection tests. Pure logic: no engine needed, the
 ## analysis Dictionary is built by hand in the shape Analysis stores on a node.
 var a: Assertions
 
@@ -75,7 +75,7 @@ func _test_request_options() -> void:
 	a.check_eq(int(opts["priority"]), 20, "priority 20 so it jumps the queue")
 	a.check(bool(opts["include_policy"]), "includePolicy is requested")
 	a.check_eq(String(opts["human_profile"]), "rank_10k", "the chosen profile is passed on")
-	a.check_eq(AiPlayer.REQUEST_VISITS, 40, "40 visits per PLAN 5.4")
+	a.check_eq(AiPlayer.REQUEST_VISITS, 40, "40 visits")
 
 
 func _test_sampling_follows_human_policy() -> void:

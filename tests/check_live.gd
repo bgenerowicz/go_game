@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Milestone 7 check (PLAN section 7): candidate circles, hover variations,
+## Milestone 7 check: candidate circles, hover variations,
 ## ownership overlay and live analysis.
 ##
 ##   Check: changing position cancels the old live query (confirm by logging ids)

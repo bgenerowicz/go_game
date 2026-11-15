@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Milestone 6 check (PLAN section 7): loading a test SGF produces a result for
+## Milestone 6 check: loading a test SGF produces a result for
 ## every turn of the main line, the graph data is complete, and clicking the
 ## graph navigates.
 ##

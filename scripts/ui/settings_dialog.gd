@@ -1,6 +1,6 @@
 extends AcceptDialog
 
-## Settings dialog (PLAN 5.2): engine paths, visit budgets, human profile,
+## Settings dialog: engine paths, visit budgets, human profile,
 ## overlay toggles, engine status and the last stderr lines for troubleshooting.
 ## Built in code so it needs no scene file.
 
@@ -28,7 +28,7 @@ var status_label: Label
 var log_box: TextEdit
 var detected_label: Label
 
-## PLAN section 6.3: the settings dialog shows the last 50 stderr lines.
+## The settings dialog shows the last 50 stderr lines.
 const LOG_LINES: int = 50
 
 const PROFILES: Array[String] = [
@@ -147,13 +147,13 @@ func _build() -> void:
 	last_move_box = _check("Mark the last move")
 	candidates_box = _check("Candidate move overlays")
 	ownership_box = _check("Territory ownership")
-	# PLAN 6.1: analysis output stays hidden during a game unless this is ticked.
+	# Analysis output stays hidden during a game unless this is ticked.
 	hints_box = _check("Show hints during a game")
 	for box in [coordinates_box, numbers_box, last_move_box, candidates_box,
 			ownership_box, hints_box]:
 		column.add_child(box)
 
-	# PLAN 6.2: "Thresholds are settings". Loss in points of win-rate/score lead.
+	# "Thresholds are settings". Loss in points of win-rate/score lead.
 	column.add_child(_section("Mistake thresholds (points lost)"))
 	var threshold_grid: GridContainer = GridContainer.new()
 	threshold_grid.name = "ThresholdGrid"
@@ -169,7 +169,7 @@ func _build() -> void:
 	blunder_box = _float_spin("blunder_at", 0.5, 200.0)
 	threshold_grid.add_child(blunder_box)
 
-	# PLAN 6.3: board colours.
+	# Board colours.
 	column.add_child(_section("Board colours"))
 	var color_grid: GridContainer = GridContainer.new()
 	color_grid.name = "ColorGrid"

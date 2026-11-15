@@ -99,7 +99,7 @@ func _make_main_line(node: GameNode) -> void:
 		return
 	parent.children.erase(node)
 	parent.children.insert(0, node)
-## Review-mode editing (PLAN 6.2: "clicking the board in review mode adds a
+## Review-mode editing ("clicking the board in review mode adds a
 ## variation move"). Works after the game is over and never ends it, because a
 ## variation is a hypothesis, not a played game.
 func add_variation(x: int, y: int) -> GameNode:

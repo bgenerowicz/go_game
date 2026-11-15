@@ -1,12 +1,12 @@
 extends AcceptDialog
 
-## New-game dialog (PLAN 6.1): board size, human colour, opponent rank and style,
+## New-game dialog: board size, human colour, opponent rank and style,
 ## handicap, komi and rules. Built in code so it needs no scene file.
 ## The caller reads params() after confirmed fires.
 
 ## Rule names KataGo 1.18.1 actually accepts (checked against the bundled
 ## binary); anything else makes the whole analysis query fail, so the list is
-## deliberately closed. Japanese is first because the PLAN makes it the default.
+## deliberately closed. Japanese is first because it is the default.
 const RULES: Array[String] = [
 	"japanese", "chinese", "korean", "aga", "new-zealand", "ing", "tromp-taylor",
 ]
@@ -16,7 +16,7 @@ const SIZES: Array[int] = [9, 13, 19]
 ## Width the explanatory note wraps at (see _build).
 const NOTE_WIDTH: float = 460.0
 
-## PLAN 6.1 "style (modern/pre-AI)": the two humanSLProfile families, without the
+## Style (modern/pre-AI): the two humanSLProfile families, without the
 ## rank suffix, which the rank box supplies.
 const STYLES: Array[String] = ["rank", "preaz"]
 const STYLE_LABELS: Array[String] = ["Modern (post-AlphaGo)", "Pre-AI style"]
@@ -28,7 +28,7 @@ const RANKS: Array[String] = [
 	"beginner", "20k", "15k", "10k", "8k", "5k", "2k", "1k", "1d", "2d", "5d", "8d", "9d",
 ]
 
-## PLAN 6.1 "human colour (black/white/random)".
+## Human colour: black, white or random.
 const COLOURS: Array[String] = ["black", "white", "random"]
 const COLOUR_LABELS: Array[String] = ["You play Black", "You play White", "Random"]
 
@@ -94,7 +94,7 @@ func _build() -> void:
 	handicap_box.min_value = 0
 	handicap_box.max_value = 9
 	handicap_box.step = 1
-	# PLAN 6.1: komi drops to 0.5 for handicap games unless set by hand.
+	# Komi drops to 0.5 for handicap games unless set by hand.
 	handicap_box.value_changed.connect(_on_handicap)
 	grid.add_child(handicap_box)
 	grid.add_child(_label("Engine opponent"))
@@ -242,7 +242,7 @@ func params() -> Dictionary:
 		"human_colour": COLOURS[colour_box.selected] if colour_box.selected >= 0 else "random",
 	}
 
-## The notes the PLAN asks for: the 9/13 accuracy caveat, the handicap komi and
+## The notes shown: the 9/13 accuracy caveat, the handicap komi and
 ## the reminder that an engine opponent has to be started.
 func _update_note() -> void:
 	if note_label == null:

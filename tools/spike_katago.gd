@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Throwaway spike required by PLAN 5.2: prove OS.execute_with_pipe can drive
+## Throwaway spike: prove OS.execute_with_pipe can drive
 ## KataGo's analysis engine before anything is built on top of it.
 ##
 ## Run from the project root:

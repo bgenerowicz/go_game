@@ -24,6 +24,7 @@ These are small tools, not part of the game. They are in git and need no downloa
 | `board_measure.py` | Reports the board geometry (origin, cell size) it finds in a screenshot, for debugging the drawing when a pixel assertion fails. |
 | `export_macos.sh` | Builds `build/macos/go_game.app` (release export, networks and config bundled in `Contents/Resources/engine/`, ad-hoc signed). Runs automatically after every commit through `.githooks/post-commit` (enable once per clone: `git config core.hooksPath .githooks`); log in `build/macos/export.log`. Needs the Godot 4.5.1 macOS export template and Homebrew's `katago`. |
 | `match_levels.gd` | Plays two opponent levels against each other through the real engine and writes one CSV row per game plus a win-rate summary. `godot --headless --path . --script res://tools/match_levels.gd -- --a=rank_beginner --b=rank_20k --games=100 --size=9`. The first run is in `docs/match_beginner_vs_20k.csv`. |
+| `screenshot.gd` | Makes `docs/screenshot.png` for the main README: opens a sample game, runs a review, shows live analysis and saves the window. `godot --path . --script res://tools/screenshot.gd` (needs a display and the engine). |
 | `spike_katago.gd`, `spike_process.gd`, `probe_paths.gd` | The throwaway spikes from milestone 4, kept as a record of how `OS.execute_with_pipe` behaves and how the engine paths are probed. |
 
 Example, in one command so the image exists before it is read:

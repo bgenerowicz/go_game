@@ -145,7 +145,7 @@ func _run() -> void:
 	var tree: RefCounted = flow.tree
 	_check(tree.size == 9, "messy.sgf loads as 9x9")
 	_check(tree.node_count() > 20, "the whole variation tree loaded")
-	# PLAN 6.2 info panel: player names come from the SGF PB/PW properties.
+	# Info panel: player names come from the SGF PB/PW properties.
 	var players: Node = root.get_node_or_null("Column/Body/SideScroller/Side/GameCard/Body/Players")
 	_check(players != null, "the info panel has a player names label")
 	if players != null:
@@ -513,7 +513,7 @@ func _run() -> void:
 				"log_box", "detected_label"]:
 			_check(settings_dialog.get(wanted) != null, "settings settings_dialog has a %s" % wanted)
 		_check(int(settings_dialog.LOG_LINES) == 50,
-			"the settings dialog shows the last 50 stderr lines, per PLAN 6.3")
+			"the settings dialog shows the last 50 stderr lines")
 		# Opening it must populate the status without starting anything.
 		settings_dialog._refresh_engine_status()
 		await process_frame
@@ -540,7 +540,7 @@ func _run() -> void:
 		_check(String(tail[49]) == "stderr line 119", "the tail is the newest line")
 		filler.free()
 		_check(not settings_dialog.log_box.editable, "the log box cannot be typed into")
-		# A restart button must exist and be wired (PLAN 5.2).
+		# A restart button must exist and be wired.
 		var found_restart: bool = false
 		for child in _all_children(settings_dialog):
 			if child is Button and String((child as Button).text).to_lower().contains("restart"):

@@ -122,7 +122,7 @@ func _test_lines_and_progress() -> void:
 
 
 func _test_thresholds_are_configurable() -> void:
-	a.section("review: thresholds are settings (PLAN 6.2)")
+	a.section("review: thresholds are settings")
 	var r: Review = Review.new()
 	a.check_eq(r.classify_loss(1.9), Review.KIND_NONE, "below the inaccuracy band")
 	a.check_eq(r.classify_loss(2.0), Review.KIND_INACCURACY, "inaccuracy at 2")
@@ -144,7 +144,7 @@ func _test_thresholds_are_configurable() -> void:
 
 
 func _test_ownership_score() -> void:
-	a.section("review: ownership score estimate (PLAN 6.2)")
+	a.section("review: ownership score estimate")
 	# 19 points fully Black, 15 fully White, the rest neutral: Black is +4.
 	var ownership: Array = []
 	for i in 19:

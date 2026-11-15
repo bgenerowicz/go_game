@@ -1,7 +1,7 @@
 class_name GraphView
 extends Control
 
-## Win-rate / score-lead graph (PLAN 6.2). x = move number, the win-rate line is
+## Win-rate / score-lead graph. x = move number, the win-rate line is
 ## Black's percentage on the left scale (0..100, 50% midline), the score lead is
 ## drawn on its own scale. A vertical cursor marks the current move, dots mark
 ## mistakes, and progress is shown while a review is still running.

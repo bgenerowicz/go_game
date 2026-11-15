@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Milestone 9 check (PLAN section 7): a fresh user:// folder gives a working
+## Milestone 9 check: a fresh user:// folder gives a working
 ## first run, or a clear message saying which path to set.
 ##
 ## Run with: godot --headless --script tests/check_first_run.gd

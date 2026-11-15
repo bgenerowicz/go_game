@@ -427,6 +427,18 @@ func _run() -> void:
 		await process_frame
 		_check(String(root.flow.current().comment) == "a note about this position",
 			"typing in the box stored the comment on the node")
+		# Typing key by key: each keystroke refreshes the UI, which must not move
+		# the caret back to the start (that reversed the typed text).
+		comment_edit.set_caret_column(String(comment_edit.text).length())
+		for ch in "!?":
+			comment_edit.insert_text_at_caret(ch)
+			comment_edit.text_changed.emit()
+			await process_frame
+		_check(String(root.flow.current().comment) == "a note about this position!?",
+			"typed characters land in order (got <%s>)" % String(root.flow.current().comment))
+		comment_edit.text = "a note about this position"
+		comment_edit.text_changed.emit()
+		await process_frame
 		var written: String = SGF.serialise(root.flow.tree)
 		_check(written.contains("C[a note about this position]"),
 			"the comment reaches the serialised SGF")

@@ -1838,7 +1838,10 @@ func _refresh() -> void:
 		graph_view.visible = review != null
 		if review != null:
 			graph_view.show_position(flow.tree, review, flow.tree.move_count_to(node))
-	if comment_edit != null:
+	# Only reload the box when the text really differs (another position). Every
+	# keystroke refreshes the UI too, and assigning the same text again put the
+	# caret back at the start, so typed text came out reversed.
+	if comment_edit != null and comment_edit.text != node.comment:
 		_setting_comment = true
 		comment_edit.text = node.comment
 		_setting_comment = false

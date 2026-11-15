@@ -566,6 +566,29 @@ func _run() -> void:
 		await process_frame
 		_check(not settings_dialog.visible, "the settings dialog is closed before rendering")
 
+	# --- your colour is clear at the start of a game against the engine -------
+	# No engine runs here, so the opponent's side is set by hand on a fresh game.
+	root._new_game_with({"size": 19, "komi": 6.5, "rules": "japanese", "handicap": 0,
+		"profile": "", "human_colour": "random"})
+	root.ai_side = Board.Stone.BLACK
+	root._refresh()
+	await process_frame
+	var corner: Vector2i = Vector2i(3, 3)
+	_check(String(root.turn_label.text).contains("KataGo")
+		and String(root.turn_label.text).contains("(Black) to play"),
+		"the engine's turn names it and its colour (got <%s>)" % String(root.turn_label.text))
+	_check(root.board_view.ghost_color_for(corner) == Board.Stone.EMPTY,
+		"no ghost stone in the engine's colour while it is to move")
+	root.ai_side = Board.Stone.WHITE
+	root._refresh()
+	await process_frame
+	_check(String(root.turn_label.text).contains("you play Black"),
+		"your turn says which colour you play (got <%s>)" % String(root.turn_label.text))
+	_check(root.board_view.ghost_color_for(corner) == Board.Stone.BLACK,
+		"the ghost stone shows your colour on your turn")
+	root.ai_side = 0
+	root._refresh()
+
 	# --- the board actually renders -----------------------------------------
 	await process_frame
 	# Nothing may be covering the main window, or the frame below measures the

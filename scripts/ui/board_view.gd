@@ -19,6 +19,10 @@ var show_ghost: bool = true
 ## Hover state, drawn as a translucent ghost stone.
 var ghost_point: Vector2i = Board.INVALID
 var ghost_color: int = Board.Stone.EMPTY
+## True while the engine opponent is to move: clicks are ignored then, so no
+## ghost stone is drawn either. A ghost in the engine's colour under the cursor
+## made it look as if you were playing that colour.
+var input_locked: bool = false
 ## Optional overlays, filled in by later milestones.
 var ownership: Array = []
 ## Candidate circles, built from node.analysis by set_analysis(). Each entry:
@@ -166,7 +170,7 @@ func _gui_input(event: InputEvent) -> void:
 ## The colour a ghost stone should show for a point: the side to play, unless the
 ## point is occupied or illegal, in which case there is no ghost.
 func ghost_color_for(point: Vector2i) -> int:
-	if point == Board.INVALID or node == null:
+	if point == Board.INVALID or node == null or input_locked:
 		return Board.Stone.EMPTY
 	var board: Board = tree.board_at(node)
 	if board.get_stone(point.x, point.y) != Board.Stone.EMPTY:

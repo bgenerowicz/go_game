@@ -1661,6 +1661,19 @@ func _autosave_stem() -> String:
 
 
 ## "KataGo 5k" for the human-like profile rank_5k, "KataGo" otherwise.
+## The turn line. In a game against the engine it says which colour is yours,
+## so the start of a game (where your colour may have been drawn at random)
+## is never ambiguous.
+func _turn_text(turn: int) -> String:
+	var colour: String = "Black" if turn == Board.Stone.BLACK else "White"
+	var number: int = flow.move_number() + 1
+	if mode != "play" or ai_side == 0:
+		return "Move %d  ·  %s to play" % [number, colour]
+	if turn == ai_side:
+		return "Move %d  ·  %s (%s) to play" % [number, _opponent_name(), colour]
+	return "Move %d  ·  Your move: you play %s" % [number, colour]
+
+
 func _opponent_name() -> String:
 	var profile: String = ai.profile if ai != null else ""
 	if profile.begins_with("rank_"):
@@ -1780,6 +1793,9 @@ func _hints_visible() -> bool:
 func _refresh() -> void:
 	if board_view == null:
 		return
+	board_view.input_locked = _is_ai_turn()
+	if board_view.input_locked:
+		board_view.set_ghost(Board.INVALID, Board.Stone.EMPTY)
 	board_view.show_position(flow.tree, flow.current())
 	var node: GameNode = flow.current()
 	# During a game the overlays and the read-out stay hidden unless
@@ -1801,8 +1817,7 @@ func _refresh() -> void:
 			turn_label.text = "Game over  ·  " + _result_in_words(flow.tree.result
 				if flow.tree.result != "" else flow.result_text)
 	else:
-		turn_label.text = "Move %d  ·  %s to play" % [flow.move_number() + 1,
-			"Black" if turn == Board.Stone.BLACK else "White"]
+		turn_label.text = _turn_text(turn)
 	_update_panel_mode()
 	# The engine's read-out follows the shown position (or says why it is off).
 	if _hints_visible():

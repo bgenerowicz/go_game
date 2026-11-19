@@ -566,6 +566,27 @@ func _run() -> void:
 		await process_frame
 		_check(not settings_dialog.visible, "the settings dialog is closed before rendering")
 
+	# --- puzzle mode ----------------------------------------------------------
+	root._on_open_path(ProjectSettings.globalize_path("res://testdata/puzzle_straight_three.sgf"))
+	await process_frame
+	_check(bool(root.puzzle_mode), "opening a life-and-death problem turns puzzle mode on")
+	_check(String(root.mode) == "review", "the problem opens in analysis mode")
+	_check(root.flow.current() == root.flow.tree.root,
+		"it opens on the problem, not at the end of a solution line")
+	_check(bool(root.puzzle_toggle.button_pressed), "the Puzzle mode switch shows it")
+	_check(String(root.puzzle_label.text).contains("Black attacks, White defends"),
+		"the panel says who attacks (got <%s>)" % String(root.puzzle_label.text))
+	_press(KEY_Z)
+	await process_frame
+	_check(not bool(root.puzzle_mode), "Z turns puzzle mode off")
+	_check(not bool(root.puzzle_label.visible), "the puzzle line hides with it")
+	_press(KEY_Z)
+	await process_frame
+	_check(bool(root.puzzle_mode), "Z turns it back on")
+	root._on_open_path(ProjectSettings.globalize_path("res://testdata/humanslbigdiff.sgf"))
+	await process_frame
+	_check(not bool(root.puzzle_mode), "an ordinary game file turns puzzle mode off")
+
 	# --- your colour is clear at the start of a game against the engine -------
 	# No engine runs here, so the opponent's side is set by hand on a fresh game.
 	root._new_game_with({"size": 19, "komi": 6.5, "rules": "japanese", "handicap": 0,

@@ -18,6 +18,7 @@ const LIVE_REPORT_EVERY: float = 0.3
 var _id_to_node: Dictionary = {}     # query id -> GameNode
 var _id_to_tree: Dictionary = {}     # query id -> GameTree
 var _id_to_turns: Dictionary = {}    # query id -> Array[int] turns analysed
+var _id_to_puzzle: Dictionary = {}   # query id -> Tsumego.plan() it was sent with
 var _live_id: String = ""
 var _live_node: GameNode = null
 var _counter: int = 0
@@ -57,7 +58,8 @@ func _next_id(prefix: String) -> String:
 
 
 ## Requests analysis of one node. opts: include_ownership, include_policy,
-## priority, human_profile. Returns "" when the engine is not usable.
+## priority, human_profile, puzzle (true: read it as a local life-and-death
+## problem, see Tsumego). Returns "" when the engine is not usable.
 func request(node: GameNode, visits: int, opts: Dictionary = {}) -> String:
 	if node == null or engine == null or not engine.running:
 		return ""
@@ -67,10 +69,18 @@ func request(node: GameNode, visits: int, opts: Dictionary = {}) -> String:
 	var query: Dictionary = _build_query(tree, node, visits, opts)
 	if query.is_empty():
 		return ""
+	# Puzzle mode adds a frame and a move limit to the query; a position that
+	# is not a local problem gets an ordinary query.
+	var puzzle: Dictionary = {}
+	if bool(opts.get("puzzle", false)):
+		puzzle = Tsumego.plan(tree, node)
+		if not puzzle.is_empty():
+			Tsumego.apply_to_query(query, puzzle)
 	var id: String = _next_id("a")
 	_id_to_node[id] = node
 	_id_to_tree[id] = tree
 	_id_to_turns[id] = [tree.move_count_to(node)]
+	_id_to_puzzle[id] = puzzle
 	query["id"] = id
 	if not engine.send(query):
 		_id_to_node.erase(id)
@@ -78,7 +88,7 @@ func request(node: GameNode, visits: int, opts: Dictionary = {}) -> String:
 	return id
 
 
-## One query covering every turn of the main line (PLAN 5.3).
+## One query covering every turn of the main line.
 func request_review(tree: GameTree, visits: int = DEFAULT_REVIEW_VISITS) -> String:
 	if tree == null or engine == null or not engine.running:
 		return ""
@@ -119,10 +129,12 @@ func request_review(tree: GameTree, visits: int = DEFAULT_REVIEW_VISITS) -> Stri
 
 
 ## Live analysis of the current position, replacing any previous live query.
-func request_live(tree: GameTree, node: GameNode, visits: int = DEFAULT_LIVE_VISITS) -> String:
+## puzzle: read the position as a local life-and-death problem (Tsumego).
+func request_live(tree: GameTree, node: GameNode, visits: int = DEFAULT_LIVE_VISITS,
+		puzzle: bool = false) -> String:
 	if node == null or engine == null or not engine.running:
 		return ""
-	if _live_id != "" and _live_node == node:
+	if _live_id != "" and _live_node == node and _live_puzzle == puzzle:
 		return _live_id
 	cancel_live()
 	var id: String = request(node, visits, {
@@ -130,11 +142,17 @@ func request_live(tree: GameTree, node: GameNode, visits: int = DEFAULT_LIVE_VIS
 		"include_ownership": true,
 		"priority": 10,
 		"report_during_search_every": LIVE_REPORT_EVERY,
+		"puzzle": puzzle,
 	})
 	if id != "":
 		_live_id = id
 		_live_node = node
+		_live_puzzle = puzzle
 	return id
+
+
+## Whether the running live search is in puzzle mode.
+var _live_puzzle: bool = false
 
 
 func cancel_live() -> void:
@@ -168,6 +186,7 @@ func clear() -> void:
 	cancel_review()
 	_id_to_node.clear()
 	_id_to_turns.clear()
+	_id_to_puzzle.clear()
 
 
 func _build_query(tree: GameTree, node: GameNode, visits: int, opts: Dictionary) -> Dictionary:
@@ -186,7 +205,7 @@ func _build_query(tree: GameTree, node: GameNode, visits: int, opts: Dictionary)
 		query["reportDuringSearchEvery"] = float(opts["report_during_search_every"])
 	var profile: String = String(opts.get("human_profile", ""))
 	if profile != "":
-		# PLAN 4.3: humanSLProfile must be inside overrideSettings; on the outer
+		# The humanSLProfile must be inside overrideSettings; on the outer
 		# object KataGo silently ignores it.
 		query["overrideSettings"] = {"humanSLProfile": profile}
 	var setup: Array = tree.setup_stones_with_colors(node)
@@ -257,7 +276,7 @@ func _on_response(response: Dictionary) -> void:
 	var target: GameNode = _node_for_turn(tree, node, id, int(response.get("turnNumber", -1)))
 	if target == null:
 		return
-	var stored: bool = _store(target, response)
+	var stored: bool = _store(target, response, _id_to_puzzle.get(id, {}) as Dictionary)
 	if id == _live_id:
 		live_updated.emit(target)
 	elif stored:
@@ -285,13 +304,20 @@ func _node_for_turn(tree: GameTree, node: GameNode, id: String, turn_number: int
 
 
 ## Caches a result on the node. Keeps the result with the most visits and never
-## overwrites it with a weaker one (PLAN 5.3). Returns false when discarded.
-func _store(node: GameNode, response: Dictionary) -> bool:
+## overwrites it with a weaker one. Returns false when discarded. A puzzle-mode
+## result and an ordinary one answer different questions, so either replaces
+## the other whatever their visits.
+func _store(node: GameNode, response: Dictionary, puzzle: Dictionary = {}) -> bool:
 	var root_info: Dictionary = response.get("rootInfo", {}) as Dictionary
 	var visits: int = int(root_info.get("visits", 0))
 	var existing: Dictionary = node.analysis
-	if not existing.is_empty() and int(existing.get("visits", -1)) >= visits:
+	var is_puzzle: bool = not puzzle.is_empty()
+	if not existing.is_empty() and bool(existing.get("puzzle", false)) == is_puzzle \
+			and int(existing.get("visits", -1)) >= visits:
 		return false
+	var ownership: Array = response.get("ownership", []) as Array
+	if is_puzzle and not ownership.is_empty():
+		ownership = _inside_only(ownership, puzzle["region"] as Rect2i, int(sqrt(ownership.size())))
 	var moves: Array = []
 	for info in (response.get("moveInfos", []) as Array):
 		var entry: Dictionary = info as Dictionary
@@ -310,10 +336,22 @@ func _store(node: GameNode, response: Dictionary) -> bool:
 		"score_lead": float(root_info.get("scoreLead", 0.0)),
 		"current_player": String(root_info.get("currentPlayer", "")),
 		"moves": moves,
-		"ownership": (response.get("ownership", []) as Array),
+		"ownership": ownership,
+		"puzzle": is_puzzle,
 		"human_policy": (response.get("humanPolicy", []) as Array),
 		"policy": (response.get("policy", []) as Array),
 		"turn_number": int(response.get("turnNumber", -1)),
 	}
 	return true
 
+
+
+## Ownership with the frame's points zeroed: the frame is the engine's private
+## scaffolding, so the overlay shows only the problem's area. KataGo lists
+## ownership row by row from the top, like the board's own grid.
+static func _inside_only(ownership: Array, region: Rect2i, size: int) -> Array:
+	var out: Array = ownership.duplicate()
+	for i in range(out.size()):
+		if not region.has_point(Vector2i(i % size, i / size)):
+			out[i] = 0.0
+	return out

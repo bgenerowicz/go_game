@@ -1,7 +1,7 @@
 class_name AiPlayer
 extends RefCounted
 
-## Picks the opponent's move from one KataGo analysis (PLAN 5.4).
+## Picks the opponent's move from one KataGo analysis.
 ##
 ## The interesting part, choose_move(), is pure: it takes an analysis Dictionary
 ## in the shape Analysis stores on a node and returns a move. That keeps the
@@ -13,7 +13,7 @@ const REQUEST_PRIORITY: int = 20
 const MIN_POLICY_FRACTION: float = 0.02
 ## Do not let the opponent move faster than this, so it does not feel instant.
 const MIN_THINK_SECONDS: float = 0.5
-## Resign thresholds (PLAN 5.4 step 4).
+## Resign thresholds.
 const RESIGN_WINRATE: float = 0.03
 const RESIGN_SCORE_BEHIND: float = 25.0
 const RESIGN_AFTER_MOVE: int = 100
@@ -108,7 +108,7 @@ func choose_move(analysis: Dictionary, size: int, color: int,
 	if moves.is_empty():
 		return {"move": "", "resign": false, "reason": "engine offered no moves"}
 
-	# Pass handling (PLAN 5.4 step 2).
+	# Pass handling.
 	var best: Dictionary = moves[0] as Dictionary
 	if String(best["move"]) == Coords.PASS:
 		if previous_was_pass or move_number > int(size * size / 2.0):
@@ -217,7 +217,7 @@ func _sample(weighted: Array) -> Dictionary:
 	return weighted[weighted.size() - 1] as Dictionary
 
 
-## PLAN 5.4 step 4: give up when the engine side is clearly lost. Win rate and
+## Give up when the engine side is clearly lost. Win rate and
 ## score lead are from Black's point of view (reportAnalysisWinratesAs = BLACK).
 func should_resign(analysis: Dictionary, color: int, move_number: int) -> bool:
 	if not allow_resign:

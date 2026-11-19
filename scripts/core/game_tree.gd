@@ -134,7 +134,14 @@ func turn_at(node: GameNode) -> int:
 			color = forced
 			break
 		if anchor == root:
-			color = Board.Stone.WHITE if handicap > 0 else Board.Stone.BLACK
+			# The SGF reader keeps root properties on the tree, not the root
+			# node, so a puzzle's PL[W] lives here. Missing it made every
+			# "White to play" problem start with Black.
+			var root_pl: int = _pl_from(extra_properties)
+			if root_pl != Board.Stone.EMPTY:
+				color = root_pl
+			else:
+				color = Board.Stone.WHITE if handicap > 0 else Board.Stone.BLACK
 			break
 		anchor = anchor.parent
 		if anchor == null:
@@ -149,9 +156,13 @@ func turn_at(node: GameNode) -> int:
 
 ## The colour named by a PL[] property on a node, or EMPTY when there is none.
 static func _pl_of(node: GameNode) -> int:
-	if not node.extra_properties.has("PL"):
+	return _pl_from(node.extra_properties)
+
+
+static func _pl_from(properties: Dictionary) -> int:
+	if not properties.has("PL"):
 		return Board.Stone.EMPTY
-	var values: Array = node.extra_properties["PL"] as Array
+	var values: Array = properties["PL"] as Array
 	if values.is_empty():
 		return Board.Stone.EMPTY
 	match String(values[0]).strip_edges().to_upper():

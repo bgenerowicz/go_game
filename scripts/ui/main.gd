@@ -29,6 +29,11 @@ var ownership_toggle: CheckButton
 var live_toggle: CheckButton
 ## Engine view: analysis (review) mode on/off, without a full review.
 var analysis_mode_toggle: CheckButton
+## Puzzle mode: live analysis reads the position as a local life-and-death
+## problem (a tsumego frame and a move limit, see Tsumego).
+var puzzle_toggle: CheckButton
+var puzzle_label: Label
+var puzzle_mode: bool = false
 var _circles_help: Label
 ## Side-panel parts that change with the mode (see _update_panel_mode).
 var _actions: GridContainer
@@ -338,6 +343,7 @@ func _build_menu() -> MenuBar:
 	view_menu.add_check_item("Live analysis (L)", 25)
 	# Analysis output is hidden during a game unless this is ticked.
 	view_menu.add_check_item("Show hints during a game", 26)
+	view_menu.add_check_item("Puzzle mode: life and death (Z)", 27)
 	view_menu.set_item_checked(view_menu.get_item_index(20), true)
 	view_menu.set_item_checked(view_menu.get_item_index(23), true)
 	view_menu.set_item_checked(view_menu.get_item_index(25), true)
@@ -406,6 +412,16 @@ func _build_side_panel() -> VBoxContainer:
 	analysis_mode_toggle.add_theme_font_size_override("font_size", FONT_BODY)
 	analysis_mode_toggle.toggled.connect(_set_analysis_mode)
 	view.add_child(analysis_mode_toggle)
+	puzzle_toggle = CheckButton.new()
+	puzzle_toggle.name = "PuzzleMode"
+	puzzle_toggle.text = "Puzzle mode: life and death (Z)"
+	puzzle_toggle.focus_mode = Control.FOCUS_NONE
+	puzzle_toggle.add_theme_font_size_override("font_size", FONT_SMALL)
+	puzzle_toggle.toggled.connect(_set_puzzle_mode)
+	view.add_child(puzzle_toggle)
+	puzzle_label = _text_label("PuzzleStatus", FONT_SMALL, COLOR_MUTED)
+	puzzle_label.visible = false
+	view.add_child(puzzle_label)
 	winrate_bar = WinRateBar.new()
 	winrate_bar.name = "WinRateBar"
 	winrate_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -850,10 +866,60 @@ func _request_live_analysis() -> void:
 	var node: GameNode = flow.current()
 	# Already analysed at least this deeply (coming back to a position): the
 	# engine would only repeat itself. "Analyse deeper" asks for more.
-	if int((node.analysis as Dictionary).get("visits", 0)) >= visits:
+	if _cached_visits(node) >= visits:
 		return
-	live_request_id = analysis.request_live(flow.tree, node, visits)
+	live_request_id = analysis.request_live(flow.tree, node, visits, puzzle_mode)
 	_live_target = visits
+
+
+## Visits of the cached result for a node, counting only a result of the kind
+## now wanted: a whole-board result does not answer a puzzle-mode question.
+func _cached_visits(node: GameNode) -> int:
+	var cached: Dictionary = node.analysis as Dictionary
+	if bool(cached.get("puzzle", false)) != puzzle_mode:
+		return 0
+	return int(cached.get("visits", 0))
+
+
+## Puzzle mode on or off, from the switch, the View menu or Z. The shown
+## position is analysed again the new way at once.
+func _set_puzzle_mode(on: bool) -> void:
+	puzzle_mode = on
+	if view_menu != null:
+		view_menu.set_item_checked(view_menu.get_item_index(27), on)
+	if puzzle_toggle != null:
+		puzzle_toggle.set_pressed_no_signal(on)
+	if analysis != null:
+		analysis.cancel_live()
+	live_request_id = ""
+	_refresh()
+
+
+## What puzzle mode makes of the shown position, for the line under the switch.
+func _puzzle_text(node: GameNode) -> String:
+	var p: Dictionary = Tsumego.plan(flow.tree, node)
+	if p.is_empty():
+		return "No local problem here: the stones are spread over the board, " \
+			+ "so the engine reads the whole board."
+	var region: Rect2i = p["region"]
+	var size: int = flow.tree.size
+	var corner_a: String = Coords.to_gtp(region.position.x, region.end.y - 1, size)
+	var corner_b: String = Coords.to_gtp(region.end.x - 1, region.position.y, size)
+	return "%s attacks, %s defends. The engine plays only in %s–%s." % [
+		_colour_name(int(p["attacker"])), _colour_name(int(p["defender"])), corner_a, corner_b]
+
+
+static func _colour_name(colour: int) -> String:
+	return "Black" if colour == Board.Stone.BLACK else "White"
+
+
+## A file that is a life-and-death problem: setup stones of both colours,
+## gathered in one part of the board. Solution variations may follow.
+static func looks_like_puzzle(tree: GameTree) -> bool:
+	var root: GameNode = tree.root
+	if root.setup_black.is_empty() or root.setup_white.is_empty():
+		return false
+	return not Tsumego.plan(tree, root).is_empty()
 
 
 ## "Analysing… (N visits)" while a search of the shown position is still short
@@ -861,7 +927,7 @@ func _request_live_analysis() -> void:
 func _update_deeper_button(node: GameNode) -> void:
 	if deeper_button == null or node == null:
 		return
-	var have: int = int((node.analysis as Dictionary).get("visits", 0))
+	var have: int = _cached_visits(node)
 	var searching: bool = analysis != null and analysis.live_node() == node \
 		and have < int(_live_target * 0.98)
 	if searching:
@@ -886,10 +952,10 @@ func _analyse_deeper() -> void:
 	var settings: Node = get_node_or_null("/root/Settings")
 	var budget: int = int(settings.live_visits) if settings != null else 2000
 	var node: GameNode = flow.current()
-	var have: int = int((node.analysis as Dictionary).get("visits", 0))
+	var have: int = _cached_visits(node)
 	var target: int = maxi(budget, have * 2)
 	analysis.cancel_live()  # a running search of this node would be reused as is
-	live_request_id = analysis.request_live(flow.tree, node, target)
+	live_request_id = analysis.request_live(flow.tree, node, target, puzzle_mode)
 	_live_target = target
 	_update_deeper_button(node)
 
@@ -1109,6 +1175,12 @@ func _update_panel_mode() -> void:
 		deeper_button.visible = hints
 	if live_toggle != null:
 		live_toggle.visible = hints
+	if puzzle_toggle != null:
+		puzzle_toggle.visible = hints
+	if puzzle_label != null:
+		puzzle_label.visible = hints and puzzle_mode
+		if puzzle_label.visible:
+			puzzle_label.text = _puzzle_text(flow.current())
 	if ownership_toggle != null:
 		ownership_toggle.visible = hints
 	if _circles_help != null:
@@ -1314,6 +1386,7 @@ func _new_game_with(p: Dictionary) -> void:
 	ai_request_id = ""
 	live_request_id = ""
 	_forget_review()
+	_set_puzzle_mode(false)
 	flow.start(int(p["size"]), float(p["komi"]), String(p["rules"]), int(p["handicap"]))
 	_sync_engine_board_size()
 	ai_side = 0
@@ -1399,6 +1472,8 @@ func _on_view_menu(id: int) -> void:
 			_set_analysis_mode(mode == "play")
 		25:
 			_set_live_enabled(not live_enabled)
+		27:
+			_set_puzzle_mode(not puzzle_mode)
 		20, 21, 23, 24, 26:
 			# Overlay toggles live in Settings so they persist and the settings
 			# dialog cannot drift out of step with this menu.
@@ -1544,6 +1619,9 @@ func _input(event: InputEvent) -> void:
 		KEY_L:
 			_set_live_enabled(not live_enabled)
 			accept_event()
+		KEY_Z:
+			_set_puzzle_mode(not puzzle_mode)
+			accept_event()
 		KEY_O:
 			var o_settings: Node = get_node_or_null("/root/Settings")
 			if o_settings != null:
@@ -1593,6 +1671,14 @@ func _on_open_path(path: String) -> void:
 	reset_autosave()
 	flow.adopt_tree(parsed["tree"])
 	_sync_engine_board_size()
+	# A life-and-death problem opens in analysis mode with puzzle mode on, so
+	# the engine answers it straight away and clicks try out moves.
+	var puzzle: bool = looks_like_puzzle(flow.tree)
+	_set_puzzle_mode(puzzle)
+	if puzzle:
+		_set_mode("review")
+		# Open on the problem itself, not at the end of a solution line.
+		flow.tree.go_to_root()
 	_refresh()
 	_request_live_analysis()
 

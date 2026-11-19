@@ -12,6 +12,7 @@ A desktop Go app built with [Godot](https://godotengine.org) and [KataGo](https:
   - suggested moves, with win chance and score shown on each
   - hover over a suggestion to see the rest of its variation
   - an ownership overlay showing who controls each area
+- **Puzzle mode** for life-and-death problems. On its own, the engine reads the whole board and prefers big empty areas to the vital point. In puzzle mode it plays only around the problem, and the rest of the board is filled with a wall (a "tsumego frame") in the engine's copy only, so its win rate answers one question: does the group live? Puzzle files open with it on; press Z to switch it on or off.
 - **Variations**: click the board in analysis mode to try moves. A move tree shows every branch, and you can add a comment to any position.
 - **SGF** files: open and save them, or drag one onto the window. Properties the app doesn't use are kept as they are. Finished games are saved automatically.
 - 9×9, 13×13 and 19×19 boards; handicap games; Japanese and Chinese rules.
@@ -62,7 +63,7 @@ godot --headless --path . --script tests/run_tests.gd
 godot --headless --path . --script tests/smoke_ui.gd
 ```
 
-The `tests/check_*.gd` scripts run the real KataGo engine (engine start-up, AI games, review, live analysis, crash recovery). Each takes a few minutes. If the engine files are missing, they print SKIP and exit cleanly.
+The `tests/check_*.gd` scripts run the real KataGo engine (engine start-up, AI games, review, live analysis, puzzle mode, crash recovery). Each takes a few minutes. If the engine files are missing, they print SKIP and exit cleanly.
 
 `tests/render_check.gd` and `tests/render_graph.gd` save a screenshot of the board or the graph. `tools/pixel_assert.py` then checks that each stone and graph point was drawn at the right pixel. See [tools/README.md](tools/README.md) for these and the other helper scripts.
 

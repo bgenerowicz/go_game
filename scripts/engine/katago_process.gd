@@ -1,7 +1,7 @@
 extends Node
 
 ## Runs KataGo's analysis engine as a child process and speaks its JSON line
-## protocol (PLAN 4 and 5.2). Registered as the autoload "KataGo".
+## protocol. Registered as the autoload "KataGo".
 ##
 ## Nothing starts until start_engine() is called, so the test suite and the
 ## editor stay fast and never need the (gitignored) engine binary.
